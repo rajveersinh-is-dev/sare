@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: SARE — Safe-Reduction + Adaptive elimination ordering for sparse fill-in reduction
+message: >-
+  If you use this software, please cite it as below. This work reports an
+  evidence Level D result (correct and reproducible, without a demonstrated
+  practical advantage over established baselines).
+type: software
+authors:
+  - given-names: Rajve
+    name: Rajve
+identifiers:
+  - type: url
+    value: https://github.com/daveaddams91-dev/sare
+repository: https://github.com/daveaddams91-dev/sare
+url: https://github.com/daveaddams91-dev/sare
+license: MIT
+version: 0.1.0
+date-released: 2026-10-19
+keywords:
+  - elimination ordering
+  - fill-in reduction
+  - sparse direct solvers
+  - graph algorithms
+  - verified algorithm
+abstract: >-
+  SARE is a deterministic adaptive elimination ordering for reducing fill-in
+  in sparse direct factorization. It combines safe degree-0/1 reductions
+  (provably zero fill) with an adaptive greedy phase driven by a degree /
+  fill-in / lookahead potential. Correctness, zero-fill reductions, chordal
+  completion, and termination are proved. Benchmarked against minimum-degree
+  and minimum-fill baselines; fill is comparable but SARE is slower
+  (evidence Level D).

@@ -1,0 +1,17 @@
+[package]
+name = "sare"
+version = "0.1.0"
+edition = "2021"
+description = "SARE: Safe-Reduction + Adaptive elimination ordering for sparse fill-in reduction"
+
+[[bin]]
+name = "sare"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = true

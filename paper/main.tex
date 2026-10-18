@@ -1,0 +1,197 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{authblk}
+
+\title{SARE: A Verified Adaptive Elimination Ordering for Sparse Fill-In Reduction}
+\author{Rajve}
+\affil{Independent research. No institutional affiliation.}
+\date{October 2026}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We consider the problem of computing a vertex elimination ordering that reduces fill-in
+for a subsequent sparse direct factorization (Cholesky, LU, or QR). Minimum fill-in is
+NP-hard, so the problem is addressed heuristically. We present SARE---Safe-Reduction plus
+Adaptive Elimination ordering---a deterministic algorithm with two phases: (A) safe
+reductions that eliminate degree-0 and degree-1 vertices, which provably add zero fill; and
+(B) an adaptive greedy phase that selects the next vertex by a tunable score combining
+current degree, current fill-in, and an optional one-step lookahead.
+
+We prove correctness (the output is a valid elimination ordering whose reported fill and
+elimination width exactly match the elimination), prove that Phase A adds zero fill, prove
+that the filled graph is chordal and the order is a perfect elimination ordering of it, and
+prove termination. We give worst-case and expected complexity bounds and compare them
+honestly with the classical Approximate Minimum Degree (AMD) algorithm: SARE does not
+improve on AMD's asymptotic ordering time.
+
+We implement SARE in Rust and in an independent Python reference, and evaluate it against
+minimum-degree and minimum-fill greedy baselines over 18 instance families with five
+repetitions, bootstrap confidence intervals, and peak-memory measurement. The experimental
+evidence shows SARE's fill is comparable to---and not consistently better than---minimum
+degree/minimum fill, while SARE is slower (minimum degree is up to $\sim76\times$ faster on
+some instances). We therefore place the result at evidence Level D: correct and
+reproducible, but without a demonstrated theoretical or practical advantage over established
+methods. All code, raw results, and research documentation are published with this work.
+\end{abstract}
+
+\section{Introduction}
+Sparse direct solvers (Cholesky, LU, QR) are a foundation of scientific computing, used in
+finite-element analysis, optimization, graphical models, and VLSI CAD. Their cost is
+dominated by fill-in: new nonzeros created during factorization. A vertex elimination
+ordering controls this fill, and computing a good ordering is a high-leverage preprocessing
+step. Finding an ordering with minimum fill-in is NP-hard, so practice relies on heuristics
+such as Minimum Degree (Tinney \& Walker, 1967), Multiple Minimum Degree (Liu, 1985), and
+Approximate Minimum Degree---AMD (Amestoy, Davis, \& Duff, 1996; Algorithm 837, 2004)---the
+strongest widely used baseline, together with Minimum Fill-in and Nested Dissection/METIS.
+
+We contribute SARE, a deterministic adaptive elimination ordering with provably-safe
+reductions and a tunable degree/fill/lookahead decision rule. Our emphasis is on rigor and
+honesty: we prove what can be proved (correctness, zero-fill reductions, chordal
+completion, termination), bound the complexity, and benchmark against classical heuristics
+with uncertainty. The evidence does not support a performance claim: SARE is comparable in
+fill to minimum degree/minimum fill but slower. We report this as Level D and do not
+overclaim.
+
+\section{Problem definition}
+Let $G=(V,E)$ be a finite, simple, undirected graph, $n=|V|$, $m=|E|$. An elimination
+ordering $\pi=(v_1,\dots,v_n)$ is a permutation of $V$. Eliminating $v_i$ from the current
+graph adds an edge between every pair of its current neighbors that is not already present
+(making the neighborhood a clique), then deletes $v_i$. The fill-in $F(\pi)$ is the set of
+edges added; the fill count is $|F(\pi)|-|E|$. The elimination width is
+$w(\pi)=\max_i |N_{G_{i-1}}(v_i)|$, an upper bound on $\mathrm{tw}(G)+1$.
+
+\textbf{Output:} an elimination ordering $\pi$. \textbf{Objective:} minimize fill count
+(primary) and elimination width (secondary). Minimum fill-in is NP-hard; we seek good
+heuristics, not optimality.
+
+Degenerate cases (empty graph, clique, trees, isolated vertices) are handled. The fill
+model matches sparse Cholesky/LU/QR: eliminating $v$ creates one fill edge per missing pair
+in its current neighborhood.
+
+\section{Algorithm: SARE}
+\textbf{Phase A (safe reductions):} repeatedly eliminate any live vertex of degree 0 or 1.
+Such an elimination creates $\binom{d}{2}-e(N(v))=0$ fill edges for $d\in\{0,1\}$, so Phase
+A adds zero fill. \textbf{Phase B (adaptive greedy):} while any live vertex remains,
+eliminate the live vertex minimizing
+\[
+  \mathrm{score}(v) = d(v) + \alpha\,\mathrm{fill}(v) + \beta\,\mathrm{look}(v),
+\]
+where $d(v)$ is current degree, $\mathrm{fill}(v)$ is fill created by eliminating $v$ now,
+and $\mathrm{look}(v)$ is an optional one-step lookahead estimate (disabled by default,
+$\beta=0$). Parameters $\alpha,\beta\ge0$ select the regime (degree-driven, fill-driven, or
+lookahead-driven). Ties broken by vertex id (deterministic).
+
+\subsection{Correctness theorems}
+\begin{theorem}[Valid ordering]\label{t:valid}
+SARE returns a permutation $\pi$ of $V$: every vertex appears exactly once.
+\end{theorem}
+\begin{proof}
+A vertex is appended immediately before elimination, which marks it eliminated and removes
+it from all neighbor sets; selection skips eliminated vertices. Each iteration eliminates
+exactly one not-yet-eliminated vertex, and there are finitely many, so all vertices are
+appended exactly once.
+\end{proof}
+
+\begin{theorem}[Exact fill and width]\label{t:exact}
+The reported fill count and width equal the fill count and elimination width of eliminating
+in order $\pi$.
+\end{theorem}
+\begin{proof}
+Elimination adds exactly the missing pairs in the current neighborhood, which are exactly
+the fill edges created at that step; accumulation gives $F(\pi)$ and $w(\pi)$.
+\end{proof}
+
+\begin{theorem}[Zero-fill safe reductions]\label{t:zerofill}
+Every vertex eliminated in Phase A creates zero fill.
+\end{theorem}
+\begin{proof}
+Phase A eliminates only vertices with $d\in\{0,1\}$; $\binom{0}{2}=\binom{1}{2}=0$ and
+$e(\emptyset)=e(\{u\})=0$, so fill is 0.
+\end{proof}
+
+\begin{theorem}[Chordal completion]\label{t:chordal}
+The filled graph $H=(V,E\cup F(\pi))$ is chordal and $\pi$ is a perfect elimination
+ordering of $H$.
+\end{theorem}
+\begin{proof}
+Standard elimination-game argument: making each eliminated vertex's later neighbors a clique
+produces a chordal graph for which the elimination order is perfect.
+\end{proof}
+
+\begin{theorem}[Termination]\label{t:term}
+SARE halts on every finite input.
+\end{theorem}
+
+\section{Complexity}
+With adjacency hash sets, Phase A is $O(n+m)$. Phase B eliminates at most $n$ vertices;
+eliminating $v$ costs $O(d(v)^2)$ for the fill clique. Na\"ive rescanning selection gives
+worst case $O(n^2+n\Delta^2)$ (dense: $O(n^3)$); with a priority queue,
+$O((m+F)\Delta)$ where $F\le O(n^2)$ fill edges. Space $O(n^2)$ worst case (filled graph),
+$O(n+m)$ expected for sparse inputs. Expected time $O(n\cdot m)$ on sparse graphs---matching
+AMD's ordering time; \textbf{no asymptotic improvement over AMD is claimed}.
+
+\section{Experiments}
+We compare SARE ($\alpha=1,\beta=0$), ablations (sare-a0, sare-a2, sare-lookahead),
+minimum degree, and minimum fill---all in the same Rust binary for a fair same-language
+comparison---over 18 deterministic instance families (paths, cliques, stars, trees, grids,
+Erd\H{o}s--R\'enyi sparse/dense, chordal, 2D Poisson stencil, symmetric sparse random),
+$n$ up to 500, fixed seeds, five repetitions, 95\% bootstrap confidence intervals, peak
+memory, CPU only. Raw data, regeneration script, and figures are released.
+
+\textbf{Result.} SARE's fill is comparable to minimum degree/minimum fill (within $\sim7$\%,
+sometimes better, sometimes worse, sometimes equal) and SARE is slower---minimum degree is
+up to $\sim76\times$ faster on chordal-250. No instance family shows a clear SARE advantage
+on the fill/time tradeoff.
+
+\section{Limitations}
+SARE is not optimal (minimum fill-in is NP-hard), provides no approximation ratio, no
+asymptotic improvement over AMD, and no demonstrated practical advantage. Eliminating all
+degree-1 vertices first is not claimed optimality-safe. The baselines min-degree/min-fill are
+stand-ins for AMD; AMD itself was not directly executed. Instances are synthetic; real
+SuiteSparse matrices were not used.
+
+\section{Conclusion}
+SARE is a correctly specified, proved, and verified adaptive elimination ordering with
+provably-zero-fill safe reductions. Honestly benchmarked, it is Level D: reproducible and
+correct, but not faster or consistently better than minimum degree/AMD. Code and artifacts
+are published with this work.
+
+\section*{Reproducibility}
+Source: GitHub repository (published with this work). Commands:
+\texttt{cargo build --release} and \texttt{python scripts/run\_benchmarks.py}. Raw results in
+\texttt{results/raw/}, processed in \texttt{results/processed/}, figures in
+\texttt{results/figures/}.
+
+\begin{thebibliography}{9}
+\bibitem{add96} P.~R. Amestoy, T.~A. Davis, I.~S. Duff.
+  An approximate minimum degree ordering algorithm.
+  \emph{SIAM J. Matrix Anal. Appl.}, 17(4):886--905, 1996.
+\bibitem{add04} P.~R. Amestoy, T.~A. Davis, I.~S. Duff.
+  Algorithm 837: AMD, an approximate minimum degree ordering algorithm.
+  \emph{ACM Trans. Math. Softw.}, 30(3), 2004.
+\bibitem{liu85} J.~W.~H. Liu. Modification of the minimum-degree algorithm by multiple
+  elimination. \emph{ACM Trans. Math. Softw.}, 11(2):141--153, 1985.
+\bibitem{tw67} W.~H.~T. Tinney and J.~W. Walker. Direct solutions of sparse network equations
+  by optimally ordered triangular factorization. \emph{Proc. IEEE}, 55(11):1801--1809, 1967.
+\bibitem{bk08} H.~L. Bodlaender and A.~M.~C.~A. Koster. Treewidth computations I. Upper bounds.
+  \emph{UU-CS-2008-032}, 2008.
+\bibitem{ipec16} Turbocharging treewidth heuristics. \emph{IPEC 2016}.
+\bibitem{aaai07} Best-first search for treewidth. \emph{AAAI 2007}.
+\end{thebibliography}
+
+\end{document}

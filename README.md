@@ -1,0 +1,92 @@
+# SARE — Safe-Reduction + Adaptive elimination ordering for sparse fill-in reduction
+
+**Problem.** Given an undirected graph, find a vertex elimination ordering that reduces
+fill-in for a subsequent sparse direct factorization (Cholesky, LU, QR). Minimum fill-in is
+NP-hard, so this is a heuristic problem.
+
+**Core idea.** SARE eliminates vertices in two phases:
+
+1. **Safe reductions** — eliminate degree-0 and degree-1 vertices first; these provably add
+   zero fill.
+2. **Adaptive greedy** — repeatedly eliminate the live vertex minimizing a tunable score
+   `degree + alpha * fill + beta * lookahead`, balancing current degree (keeps the graph
+   small) against current fill-in (avoids creating edges), with optional one-step lookahead.
+
+**Honest bottom line (read before using).** SARE is correct and reproducible, but our
+benchmarks show it is **comparable in fill to minimum-degree/minimum-fill and slower** than
+minimum degree (up to ~76× faster on some instances). We do **not** claim a theoretical or
+practical advantage over established methods. This is an **evidence Level D** result: a
+verified implementation with proved correctness, honestly evaluated.
+
+| Claim | Status |
+|-------|--------|
+| Returns a valid elimination ordering | Proved + tested |
+| Phase A adds zero fill | Proved + tested |
+| Fill / width reported exactly match elimination | Proved + tested |
+| Filled graph is chordal; order is a PEO | Proved |
+| Terminates on every finite input | Proved + tested |
+| Beats minimum degree / AMD in fill | **No** (comparable, sometimes worse) |
+| Faster than minimum degree / AMD | **No** (slower) |
+| New asymptotic bound over AMD's O(n·m) | **No** (not claimed) |
+
+## Contents
+
+- `docs/PROBLEM_DEFINITION.md` — precise problem statement
+- `docs/ALGORITHM_SPECIFICATION.md` — algorithm + pseudocode
+- `docs/MATHEMATICAL_FOUNDATIONS.md` — definitions, theorems, proofs
+- `docs/COMPLEXITY_ANALYSIS.md` — complexity bounds
+- `src/rs/` — optimized Rust library + CLI
+- `src/python/sare_reference.py` — readable Python reference
+- `tests/` — pytest suite (55 tests, incl. cross-language differential vs Rust)
+- `scripts/run_benchmarks.py` — benchmark runner (regenerates `results/`)
+- `results/` — raw CSV, processed summary + CI, figures
+- `paper/main.tex` — research manuscript
+- `reviews/` — internal adversarial reviews (mathematics, algorithms, benchmarks) + revision log
+- `research/` — literature review, candidate matrix, novelty assessment, final evaluation
+
+## Installation
+
+```sh
+# Rust (optimized CLI + library)
+cd src/rs
+cargo build --release
+cargo test --release
+# CLI: ./target/release/sare <graph> <algo> [alpha] [beta]
+
+# Python reference (no dependencies beyond stdlib)
+python src/python/sare_reference.py <graph> sare
+```
+
+Graph input: Matrix Market coordinate file or plain whitespace edge list (1-based).
+
+## Tests
+
+```sh
+python -m pytest tests/ -q            # Python reference (55 tests)
+cd src/rs && cargo test --release     # Rust library
+```
+
+## Benchmarks
+
+```sh
+python scripts/run_benchmarks.py          # full suite (18 families × 6 algos × 5 reps)
+python scripts/run_benchmarks.py --quick  # quick subset
+```
+
+Regenerates `results/raw/benchmarks.csv`, `results/processed/summary.csv`,
+`results/processed/relative_to_sare.csv`, and `results/figures/*.png`.
+
+## Citation
+
+See `CITATION.cff`. Author: Rajve (independent research, no institutional affiliation).
+
+## License
+
+MIT. See `LICENSE`.
+
+## Honesty statement
+
+This project does not claim to be novel beyond the evidence, does not claim to be the
+fastest, and does not claim a theoretical improvement over Approximate Minimum Degree. It
+is a correctly specified, proved, verified, and honestly benchmarked elimination ordering,
+reported at evidence Level D. Unfavorable results are reported alongside favorable ones.

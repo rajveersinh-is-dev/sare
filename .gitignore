@@ -1,0 +1,50 @@
+# Compiled output
+/target/
+**/target/
+**/*.rs.bak
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+*.egg
+
+# Rust
+*.d
+
+# Results / generated artifacts (tracked: CSVs and PNGs are small research artifacts)
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+Thumbs.db:ehthumbs.db
+ehthumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp / scratch
+tests/_bench_input.graph
+tests/_tmp_input.graph
+/tmp/opencode/**
+
+# Secrets (never commit)
+*.env
+*.key
+*.pem
+secret*

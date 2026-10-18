@@ -1,0 +1,6 @@
+# Demo graph: a small tree plus one extra edge (1-based vertex indices)
+1 2
+2 3
+3 4
+4 5
+2 5
