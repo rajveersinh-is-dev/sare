@@ -1,34 +1,28 @@
-# Research Progress Log
+# Research Progress Log — COMPLETE
 
 Last updated: 2026-10-19
 
-## Current stage
-Stage 9 — Three-persona adversarial reviews (written); beginning revision loop #1.
+## Project status
+COMPLETE. SARE published at https://github.com/rajveersinh-is-dev/sare (public, main, commit 2fc5eec).
+Local HEAD == remote HEAD == 2fc5eec (2 commits).
 
-## Completed stages
-Stage 1 (environment), Stage 2 (candidate matrix, 12 candidates), Stage 3 (novelty assessment: C1 = GO),
-Stage 4 (problem definition + algorithm spec), Stage 5 (formal proofs: 5 theorems proved, bounds delimited),
-Stage 6 (Rust lib+CLI + Python reference, 55 passing tests incl. cross-language differential + brute-force +
-chordal invariant), Stage 7 (benchmark suite: 8 families x 6 algorithms, raw+processed+figures).
+## What was delivered (all Parts I–XII)
+- Problem definition, algorithm spec, mathematical foundations (5 proved theorems), complexity analysis
+- Rust library + CLI (src/rs) + Python reference (src/python), 55 passing tests
+- Benchmark suite (18 families × 6 algos × 5 reps, 95% CI, peak memory), results/raw + processed + figures
+- Literature review, candidate matrix (12), novelty assessment
+- 3 internal adversarial reviews + revision log
+- Final evaluation scorecard: 5.6/10 weighted (Level D performance, bounded novelty)
+- Research manuscript (paper/main.tex), README, LICENSE (MIT), CITATION.cff, CI workflow
+- CV entry, project summary, examples
+- GitHub repo created + pushed + verified (public, main branch)
 
-## Evidence established
-- OS: Windows 11 Home 64-bit (10.0.22631); CPU: 11th Gen Intel i5-11260H 6c/12t @2.60GHz; RAM ~15.7 GiB;
-  GPU: Intel UHD + NVIDIA RTX 3050 Laptop (core kept on CPU for fair comparison).
-- Python 3.14.6 full scientific stack; Rust 1.98.1; GitHub CLI authenticated as `daveaddams91-dev`.
-- C1 = SARE (Safe-Reduction + Adaptive elimination ordering). Fully implemented and verified.
-- Honest benchmark finding: SARE fill ≈ min-degree/min-fill (1-4% better on some sparse random graphs,
-  equal elsewhere), but SARE is SLOWER (min-degree up to ~18x faster on er_sparse_300).
-  => No clear practical advantage over min-degree/AMD. Performance claim = Level D (unconfirmed).
+## Honest verdict
+- Novelty: bounded/moderate (degree/fill greedy skeleton is standard; specific combination verified, not first-of-its-kind)
+- Mathematics: sound but modest (correctness + zero-fill reductions, no new bound/approximation)
+- Performance: Level D — fill ≈ min-degree/min-fill, SARE slower (min-degree up to ~76× faster on chordal-250)
+- Weighted score: 5.6/10 (below the >9 target; reported honestly)
 
-## Decision
-Complete C1 (SARE) as primary, reported honestly at its evidenced level. Do NOT pivot to C4 (would discard
-verified work; C4 carries HSS/H-matrix prior-art risk). C1's defensible contribution: rigorous correctness
-(5 proved theorems), provably-zero-fill safe reductions, documented adaptive decision rule; honestly evaluated.
-Performance = Level D. Novelty = moderate (bounded claims, no first-of-its-kind claim).
-
-## Next actions
-1. Write three adversarial reviews (reviews/REVIEW_MATHEMATICS.md, REVIEW_ALGORITHMS.md, REVIEW_BENCHMARKS.md).
-2. Revision log + fixes (reviews/REVISION_LOG.md).
-3. Final evaluation + scorecard (research/FINAL_EVALUATION.md).
-4. Manuscript (paper/), README, CV entry, project summary.
-5. GitHub repo creation + push under daveaddams91-dev; final audit.
+## Repository
+https://github.com/rajveersinh-is-dev/sare — public, branch main, latest commit 2fc5eec.
+Local HEAD == remote HEAD. Publication verified via git ls-remote + gh repo view.
