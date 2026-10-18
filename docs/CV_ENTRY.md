@@ -2,6 +2,7 @@
 
 SARE — Independent Algorithm Research and Development
 Independent research, October 2026. Author: Rajve (no institutional affiliation).
+Source: https://github.com/rajveersinh-is-dev/sare
 
 - Developed SARE (Safe-Reduction + Adaptive elimination ordering), a deterministic
   heuristic for computing vertex elimination orderings that reduce fill-in in sparse
