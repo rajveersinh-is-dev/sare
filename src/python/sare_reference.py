@@ -16,32 +16,63 @@ Run:
 
 from __future__ import annotations
 
+from typing import Dict, List, Optional, Set, Tuple
 import argparse
-import heapq
-import itertools
+import functools
 import json
 import sys
-from typing import Dict, List, Optional, Set, Tuple
+
 
 
 class Graph:
     """Simple undirected graph with mutable adjacency sets (supports fill edges)."""
 
     def __init__(self, n: int):
+        """Init.
+        
+        Args:
+            n:
+        
+        """
         self.n = n
         self.adj: List[Set[int]] = [set() for _ in range(n)]
         self.eliminated: List[bool] = [False] * n
 
     def add_edge(self, u: int, v: int) -> None:
+        """Add edge.
+        
+        Args:
+            u:
+            v:
+        
+        """
         if u == v:
             return
         self.adj[u].add(v)
         self.adj[v].add(u)
 
     def degree(self, v: int) -> int:
+        """Degree.
+        
+        Args:
+            v:
+        
+        Returns:
+            The computed result
+        
+        """
         return len(self.adj[v])
 
     def is_live(self, v: int) -> bool:
+        """Is live.
+        
+        Args:
+            v:
+        
+        Returns:
+            The computed result
+        
+        """
         return not self.eliminated[v]
 
     def fill(self, v: int) -> int:
@@ -60,9 +91,9 @@ class Graph:
         assert not self.eliminated[v]
         nbrs = list(self.adj[v])
         fill_added = 0
-        for i in range(len(nbrs)):
+        for i, item in enumerate(nbrs):
             for j in range(i + 1, len(nbrs)):
-                a, b = nbrs[i], nbrs[j]
+                a, b = item, nbrs[j]
                 if b not in self.adj[a]:
                     self.adj[a].add(b)
                     self.adj[b].add(a)
@@ -74,9 +105,21 @@ class Graph:
         return fill_added
 
     def live_vertices(self) -> List[int]:
+        """Live vertices.
+        
+        Returns:
+            The computed result
+        
+        """
         return [v for v in range(self.n) if not self.eliminated[v]]
 
     def copy(self) -> "Graph":
+        """Copy.
+        
+        Returns:
+            The computed result
+        
+        """
         g = Graph(self.n)
         for v in range(self.n):
             g.adj[v] = set(self.adj[v])
@@ -194,8 +237,19 @@ def brute_force_optimum(graph: Graph) -> Dict[str, object]:
     best_width = [float("inf")]
     best_order: List[int] = []
 
+    @functools.lru_cache(maxsize=None)
     def rec(g: Graph, remaining: List[int], cur_fill: int, cur_width: int,
             prefix: List[int]) -> None:
+        """Rec.
+        
+        Args:
+            g:
+            remaining:
+            cur_fill:
+            cur_width:
+            prefix:
+        
+        """
         if not remaining:
             if (cur_fill < best_fill[0]
                     or (cur_fill == best_fill[0] and cur_width < best_width[0])):
@@ -203,10 +257,11 @@ def brute_force_optimum(graph: Graph) -> Dict[str, object]:
                 best_width[0] = cur_width
                 best_order[:] = list(prefix)
             return
-        if cur_fill > best_fill[0]:  # prune: fill is monotone
+        if cur_fill > best_fill[0]:  # prune:
+            fill is monotone
             return
-        for i in range(len(remaining)):
-            v = remaining[i]
+        for i, item in enumerate(remaining):
+            v = item
             g2 = g.copy()
             d = g2.degree(v)
             new_width = max(cur_width, d)
@@ -223,6 +278,15 @@ def brute_force_optimum(graph: Graph) -> Dict[str, object]:
 
 
 def read_edge_list(text: str) -> Graph:
+    """Load and parse edge list.
+    
+    Args:
+        text:
+    
+    Returns:
+        The computed result
+    
+    """
     n = 0
     edges: List[Tuple[int, int]] = []
     for line in text.splitlines():
@@ -245,6 +309,15 @@ def read_edge_list(text: str) -> Graph:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """Entry point — parse arguments and run the main computation.
+    
+    Args:
+        argv:
+    
+    Returns:
+        int: Result of type int
+    
+    """
     parser = argparse.ArgumentParser(description="SARE reference (Python)")
     parser.add_argument("input", help="edge list or Matrix Market coordinate file")
     parser.add_argument("algo", choices=["sare", "sare-a0", "sare-a2",
