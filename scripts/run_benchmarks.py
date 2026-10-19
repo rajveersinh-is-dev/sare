@@ -1,35 +1,3 @@
-"""
-SARE benchmark runner (revised per Reviewer C, cycle 1).
-
-Runs the Rust CLI (src/rs/target/release/sare) on generated instance families and
-records fill_count, elimination width, ordering time, and peak memory for each
-algorithm.
-
-Algorithms compared (all in the SAME Rust binary -> fair same-language comparison):
-  sare            : SARE default (alpha=1, beta=0)
-  sare-a0         : SARE degree-driven (alpha=0, beta=0)  [ablation]
-  sare-a2         : SARE fill-driven (alpha=2, beta=0)    [ablation]
-  sare-lookahead  : SARE with 1-step lookahead (alpha=1, beta=1) [ablation]
-  min-degree      : Minimum Degree greedy
-  min-fill        : Minimum Fill-in greedy
-
-Instance families (deterministic, fixed seeds):
-  path, clique, star, tree, grid, erdos-renyi (sparse/dense), chordal,
-  poisson_2d (5-point stencil, realistic sparse-direct-solver workload),
-  sparse_random (symmetric, realistic-ish)
-
-Outputs (regenerable by this script):
-  results/raw/benchmarks.csv      per-rep measurements (time, memory, fill, width)
-  results/processed/summary.csv   per (family, algorithm) aggregates: mean + 95% CI
-  results/processed/relative_to_sare.csv  fill/width/time ratios vs SARE
-  results/figures/*.png           plots
-
-Usage:
-  python scripts/run_benchmarks.py [--quick] [--reps N]
-"""
-
-from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -40,6 +8,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Union
 
 import psutil
 
@@ -61,26 +30,27 @@ BOOTSTRAP_ITERS = 2000
 # instance generation
 # ---------------------------------------------------------------------------
 
-def _edges_text(n, edges):
+def _edges_text(n: int, edges: List[Tuple[int, int]]) -> str:
+    """Convert a list of edges to a string representation."""
     lines = []
     for u, v in edges:
         lines.append(f"{u + 1} {v + 1}")
     return "\n".join(lines) + "\n"
 
-
-def path_graph(n):
+def path_graph(n: int) -> List[Tuple[int, int]]:
+    """Generate a path graph with n vertices."""
     return [(i, i + 1) for i in range(n - 1)]
 
-
-def clique_graph(n):
+def clique_graph(n: int) -> List[Tuple[int, int]]:
+    """Generate a clique graph with n vertices."""
     return [(i, j) for i in range(n) for j in range(i + 1, n)]
 
-
-def star_graph(n):
+def star_graph(n: int) -> List[Tuple[int, int]]:
+    """Generate a star graph with n vertices."""
     return [(0, v) for v in range(1, n)]
 
-
-def tree_graph(n, seed=0):
+def tree_graph(n: int, seed: int = 0) -> List[Tuple[int, int]]:
+    """Generate a random tree graph with n vertices."""
     import random
     rng = random.Random(seed)
     edges = []
@@ -89,8 +59,8 @@ def tree_graph(n, seed=0):
         edges.append((u, v))
     return edges
 
-
-def grid_graph(rows, cols):
+def grid_graph(rows: int, cols: int) -> List[Tuple[int, int]]:
+    """Generate a grid graph with rows x cols vertices."""
     n = rows * cols
     edges = []
     for r in range(rows):
@@ -102,8 +72,8 @@ def grid_graph(rows, cols):
                 edges.append((v, v + 1))
     return edges
 
-
-def erdos_renyi(n, p, seed=0):
+def erdos_renyi(n: int, p: float, seed: int = 0) -> List[Tuple[int, int]]:
+    """Generate an Erdős–Rényi random graph with n vertices and edge probability p."""
     import random
     rng = random.Random(seed)
     edges = []
@@ -113,9 +83,8 @@ def erdos_renyi(n, p, seed=0):
                 edges.append((i, j))
     return edges
 
-
-def chordal_graph(n, seed=0):
-    """Build a chordal graph: start from a clique, add simplicial vertices."""
+def chordal_graph(n: int, seed: int = 0) -> List[Tuple[int, int]]:
+    """Generate a chordal graph with n vertices."""
     import random
     rng = random.Random(seed)
     edges = []
@@ -129,9 +98,8 @@ def chordal_graph(n, seed=0):
             edges.append((u, v))
     return edges
 
-
-def poisson_2d(k, seed=0):
-    """5-point stencil on a k x k grid (n = k^2). Realistic sparse-direct-solver workload."""
+def poisson_2d(k: int, seed: int = 0) -> List[Tuple[int, int]]:
+    """Generate a 5-point stencil on a k x k grid (n = k^2). Realistic sparse-direct-solver workload."""
     n = k * k
     edges = []
     for r in range(k):
@@ -143,9 +111,8 @@ def poisson_2d(k, seed=0):
                 edges.append((v, v + 1))
     return edges
 
-
-def sparse_random(n, density, seed=0):
-    """Symmetric random sparse matrix (scipy), written as edge list."""
+def sparse_random(n: int, density: float, seed: int = 0) -> List[Tuple[int, int]]:
+    """Generate a symmetric random sparse matrix (scipy), written as edge list."""
     import scipy.sparse as sp
     rng_seed = seed
     A = sp.random(n, n, density=density, random_state=rng_seed, format="coo", dtype=float)
@@ -155,8 +122,7 @@ def sparse_random(n, density, seed=0):
     edges = [(int(i), int(j)) for i, j in zip(A.row, A.col) if i < j]
     return edges
 
-
-def instance_families(quick=False):
+def instance_families(quick: bool = False) -> Tuple[str, str, int, str]:
     """Yield (family, label, n, edge_list_text)."""
     if quick:
         specs = [
@@ -200,7 +166,8 @@ def instance_families(quick=False):
 # runner (with repetition + CI + memory)
 # ---------------------------------------------------------------------------
 
-def alpha_beta(algo):
+def alpha_beta(algo: str) -> Tuple[float, float]:
+    """Return the alpha and beta parameters for the given algorithm."""
     if algo == "sare-a0":
         return 0.0, 0.0
     if algo == "sare-a2":
@@ -209,8 +176,7 @@ def alpha_beta(algo):
         return 1.0, 1.0
     return 1.0, 0.0
 
-
-def run_once(bin_path, text, algo, alpha, beta):
+def run_once(bin_path: Path, text: str, algo: str, alpha: float, beta: float) -> Tuple[Dict, float, int]:
     """Run the Rust CLI once; return (result_dict, wall_s, peak_rss_bytes).
 
     Memory is sampled on a daemon thread while the child runs, to avoid
@@ -254,8 +220,7 @@ def run_once(bin_path, text, algo, alpha, beta):
         raise RuntimeError(f"CLI failed for {algo}: {err}")
     return json.loads(out), wall, peak_rss[0]
 
-
-def bootstrap_ci(values, iters=BOOTSTRAP_ITERS, seed=0):
+def bootstrap_ci(values: List[float], iters: int = BOOTSTRAP_ITERS, seed: int = 0) -> Tuple[float, float]:
     """95% percentile bootstrap CI for the mean of `values`."""
     import random
     rng = random.Random(seed)
@@ -271,8 +236,8 @@ def bootstrap_ci(values, iters=BOOTSTRAP_ITERS, seed=0):
     hi = means[min(iters - 1, int(round(0.975 * (iters - 1))))]
     return (lo, hi)
 
-
-def run_benchmarks(quick=False, reps=DEFAULT_REPS):
+def run_benchmarks(quick: bool = False, reps: int = DEFAULT_REPS) -> Path:
+    """Run benchmarks for all instance families and algorithms."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     PROC_DIR.mkdir(parents=True, exist_ok=True)
     FIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -321,7 +286,8 @@ def run_benchmarks(quick=False, reps=DEFAULT_REPS):
 # processing
 # ---------------------------------------------------------------------------
 
-def process(raw_path):
+def process(raw_path: Path) -> Tuple[Path, Path]:
+    """Process the raw benchmark results and generate summary and relative to SARE files."""
     import statistics
     rows = []
     with open(raw_path) as f:
@@ -399,7 +365,8 @@ def process(raw_path):
 # figures
 # ---------------------------------------------------------------------------
 
-def make_figures(summary_path):
+def make_figures(summary_path: Path) -> None:
+    """Generate figures from the summary file."""
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -475,8 +442,8 @@ def make_figures(summary_path):
         plt.close(fig)
         print(f"Figure -> {out}")
 
-
-def main():
+def main() -> None:
+    """Main function to run benchmarks and generate figures."""
     parser = argparse.ArgumentParser(description="SARE benchmark runner")
     parser.add_argument("--quick", action="store_true", help="small quick benchmark set")
     parser.add_argument("--reps", type=int, default=DEFAULT_REPS, help="repetitions per (instance, algorithm)")
