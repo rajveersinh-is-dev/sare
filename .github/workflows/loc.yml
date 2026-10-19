@@ -1,0 +1,35 @@
+name: Update lines-of-code badge
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Count lines of code
+        run: python scripts/count_loc.py
+
+      - name: Commit updated badge if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet results/loc_badge.svg results/loc_count.json; then
+            echo "No LOC change; skipping commit."
+          else
+            git add results/loc_badge.svg results/loc_count.json
+            git commit -m "chore: update lines-of-code badge [skip ci]"
+            git push
+          fi
