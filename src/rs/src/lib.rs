@@ -49,6 +49,9 @@ impl Graph {
     pub fn fill(&self, v: usize) -> usize {
         let nbrs: Vec<usize> = self.adj[v].iter().copied().collect();
         let d = nbrs.len();
+        if d < 2 {
+            return 0;
+        }
         let mut induced = 0usize;
         for i in 0..d {
             for j in (i + 1)..d {
@@ -103,6 +106,9 @@ pub struct OrderingResult {
 
 /// Compute the fill count and width of a given elimination order by simulating
 /// elimination on a fresh copy of the graph.
+pub mod verification;
+pub mod exact_dp;
+
 pub fn evaluate_order(graph: &Graph, order: &[usize]) -> OrderingResult {
     let mut g = graph.clone();
     let mut fill_count = 0usize;
