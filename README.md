@@ -35,9 +35,10 @@ verified implementation with proved correctness, honestly evaluated.
 - `docs/ALGORITHM_SPECIFICATION.md` — algorithm + pseudocode
 - `docs/MATHEMATICAL_FOUNDATIONS.md` — definitions, theorems, proofs
 - `docs/COMPLEXITY_ANALYSIS.md` — complexity bounds
-- `src/rs/` — optimized Rust library + CLI
-- `src/python/sare_reference.py` — readable Python reference
-- `tests/` — pytest suite (55 tests, incl. cross-language differential vs Rust)
+- `src/rs/` — optimized Rust library + CLI (now includes DP exact minimum fill and MCS chordal verification)
+- `src/python/` — readable Python reference (includes DP exact minimum fill and MCS chordal verification)
+- `docs/VERIFICATION.md` — independent verification framework documentation
+- `tests/` — pytest suite (55 tests, cross-language diff, and `hypothesis` property-based testing)
 - `scripts/run_benchmarks.py` — benchmark runner (regenerates `results/`)
 - `results/` — raw CSV, processed summary + CI, figures
 - `paper/main.tex` — research manuscript
