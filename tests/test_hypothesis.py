@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given, strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "python"))
-from sare_reference import Graph, sare, min_degree
+from sare_reference import Graph, sare, min_degree, exact_optimum
 from verification import is_chordal, build_filled_graph
 
 def generate_graph_from_edges(n: int, edges: list[tuple[int, int]]) -> Graph:
@@ -68,3 +68,13 @@ def test_algorithms_on_cliques(clique):
     for algo in [lambda g: sare(g, 1.0, 0.0), min_degree]:
         result = algo(clique)
         assert result["fill_count"] == 0
+
+from hypothesis import settings
+
+@settings(deadline=None)
+@given(graph_strategy())
+def test_sare_fill_ge_exact_optimum_on_small_graphs(graph):
+    if graph.n <= 15:
+        opt = exact_optimum(graph)
+        result = sare(graph, 1.0, 0.0)
+        assert result["fill_count"] >= opt["fill_count"]

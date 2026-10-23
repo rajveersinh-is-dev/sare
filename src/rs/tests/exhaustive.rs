@@ -1,4 +1,4 @@
-use sare::{sare, min_degree, min_fill, brute_force_optimum, Graph};
+use sare::{sare, min_degree, min_fill, exact_optimum, Graph};
 use sare::verification::{is_chordal, build_filled_graph};
 
 fn generate_all_labeled_graphs(n: usize) -> Vec<Graph> {
@@ -28,10 +28,10 @@ fn generate_all_labeled_graphs(n: usize) -> Vec<Graph> {
 
 #[test]
 fn test_exhaustive_small_instances() {
-    for n in 1..=5 {
+    for n in 1..=6 {
         let graphs = generate_all_labeled_graphs(n);
         for g in &graphs {
-            let opt = brute_force_optimum(g);
+            let opt = exact_optimum(g);
 
             // Test sare
             let sare_result = sare(g, 1.0, 0.0);
