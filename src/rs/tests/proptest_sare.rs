@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use sare::{sare, min_degree, min_fill, Graph};
+use sare::{sare, min_degree, min_fill, exact_optimum, Graph};
 use sare::verification::{is_chordal, build_filled_graph};
 
 // Generate an arbitrary simple undirected graph up to size 20
@@ -74,5 +74,12 @@ proptest! {
 
         let mf_result = min_fill(&tree);
         assert_eq!(mf_result.fill_count, 0);
+    }
+
+    #[test]
+    fn test_sare_properties_random_graphs_exact_optimum(graph in arbitrary_graph(14)) {
+        let opt = exact_optimum(&graph);
+        let sare_result = sare(&graph, 1.0, 0.0);
+        assert!(sare_result.fill_count >= opt.fill_count);
     }
 }

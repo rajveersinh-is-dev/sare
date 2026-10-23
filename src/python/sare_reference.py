@@ -183,43 +183,112 @@ def sare(graph: Graph, alpha: float = 1.0, beta: float = 0.0) -> Dict[str, objec
             "fill_edges_added": fill_count, "alpha": alpha, "beta": beta}
 
 
-def brute_force_optimum(graph: Graph) -> Dict[str, object]:
-    """Exact optimum (min fill, then min width) by exhaustive permutation search.
-    Feasible only for n <= ~10. Used for verification."""
+def exact_optimum(graph: Graph) -> Dict[str, object]:
+    """Exact optimum (min fill, then min width) by dynamic programming over subsets.
+    Feasible for n <= ~20. Used for verification."""
     n = graph.n
-    if n > 11:
-        raise ValueError(f"brute force feasible only for n <= 11, got {n}")
+    if n == 0:
+        return {"order": [], "fill_count": 0, "width": 0, "fill_edges_added": 0}
+    if n > 20:
+        raise ValueError(f"DP exact optimum feasible only for n <= 20, got {n}")
 
-    best_fill = [float("inf")]
-    best_width = [float("inf")]
-    best_order: List[int] = []
+    dp_fill = [float('inf')] * (1 << n)
+    dp_tw = [float('inf')] * (1 << n)
+    parent = [-1] * (1 << n)
 
-    def rec(g: Graph, remaining: List[int], cur_fill: int, cur_width: int,
-            prefix: List[int]) -> None:
-        if not remaining:
-            if (cur_fill < best_fill[0]
-                    or (cur_fill == best_fill[0] and cur_width < best_width[0])):
-                best_fill[0] = cur_fill
-                best_width[0] = cur_width
-                best_order[:] = list(prefix)
-            return
-        if cur_fill > best_fill[0]:  # prune: fill is monotone
-            return
-        for i in range(len(remaining)):
-            v = remaining[i]
-            g2 = g.copy()
-            d = g2.degree(v)
-            new_width = max(cur_width, d)
-            added = g2.eliminate(v)
-            new_fill = cur_fill + added
-            nxt = remaining[:i] + remaining[i + 1:]
-            prefix.append(v)
-            rec(g2, nxt, new_fill, new_width, prefix)
-            prefix.pop()
+    dp_fill[0] = 0
+    dp_tw[0] = 0
 
-    rec(graph.copy(), list(range(n)), 0, 0, [])
-    return {"order": best_order, "fill_count": int(best_fill[0]),
-            "width": int(best_width[0]), "fill_edges_added": int(best_fill[0])}
+    adj_mask = [0] * n
+    for i in range(n):
+        for u in graph.adj[i]:
+            adj_mask[i] |= (1 << u)
+
+    for mask in range(1, 1 << n):
+        best_fill = float('inf')
+        best_tw = float('inf')
+        best_p = -1
+
+        for v in range(n):
+            if mask & (1 << v):
+                s = mask & ~(1 << v)
+                if dp_fill[s] == float('inf'):
+                    continue
+
+                unvisited = s
+                comps_adj = []
+                while unvisited:
+                    start = (unvisited & -unvisited).bit_length() - 1
+                    comp = (1 << start)
+                    queue = [start]
+                    unvisited &= ~(1 << start)
+                    while queue:
+                        node = queue.pop()
+                        unvisited_nbrs = adj_mask[node] & unvisited
+                        while unvisited_nbrs:
+                            nbr = (unvisited_nbrs & -unvisited_nbrs).bit_length() - 1
+                            comp |= (1 << nbr)
+                            unvisited &= ~(1 << nbr)
+                            unvisited_nbrs &= ~(1 << nbr)
+                            queue.append(nbr)
+
+                    comp_adj = 0
+                    temp = comp
+                    while temp:
+                        node = (temp & -temp).bit_length() - 1
+                        comp_adj |= adj_mask[node]
+                        temp &= ~(1 << node)
+                    comps_adj.append(comp_adj)
+
+                u_mask = adj_mask[v] & ~s
+                for comp_adj in comps_adj:
+                    if comp_adj & (1 << v):
+                        u_mask |= (comp_adj & ~s)
+                u_mask &= ~(1 << v)
+
+                fill = 0
+                degree = 0
+                u_iter = u_mask
+                while u_iter:
+                    degree += 1
+                    x = (u_iter & -u_iter).bit_length() - 1
+                    u_iter &= ~(1 << x)
+                    y_iter = u_iter
+                    while y_iter:
+                        y = (y_iter & -y_iter).bit_length() - 1
+                        y_iter &= ~(1 << y)
+
+                        adj_in_gs = (adj_mask[x] & (1 << y)) != 0
+                        if not adj_in_gs:
+                            for comp_adj in comps_adj:
+                                if (comp_adj & (1 << x)) and (comp_adj & (1 << y)):
+                                    adj_in_gs = True
+                                    break
+                        if not adj_in_gs:
+                            fill += 1
+
+                new_fill = dp_fill[s] + fill
+                new_tw = max(dp_tw[s], degree)
+
+                if new_fill < best_fill or (new_fill == best_fill and new_tw < best_tw):
+                    best_fill = new_fill
+                    best_tw = new_tw
+                    best_p = v
+
+        dp_fill[mask] = best_fill
+        dp_tw[mask] = best_tw
+        parent[mask] = best_p
+
+    order: List[int] = []
+    curr = (1 << n) - 1
+    while curr > 0:
+        v = parent[curr]
+        order.append(v)
+        curr &= ~(1 << v)
+    order.reverse()
+
+    return {"order": order, "fill_count": int(dp_fill[(1 << n) - 1]),
+            "width": int(dp_tw[(1 << n) - 1]), "fill_edges_added": int(dp_fill[(1 << n) - 1])}
 
 
 def read_edge_list(text: str) -> Graph:

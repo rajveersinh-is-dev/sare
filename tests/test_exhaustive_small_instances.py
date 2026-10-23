@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "python"))
-from sare_reference import Graph, sare, min_degree, brute_force_optimum
+from sare_reference import Graph, sare, min_degree, exact_optimum
 from verification import is_chordal, build_filled_graph
 
 def generate_all_labeled_graphs(n: int):
@@ -20,7 +20,7 @@ def generate_all_labeled_graphs(n: int):
 @pytest.mark.parametrize("n", range(1, 6))
 def test_exhaustive_small_instances(n):
     for g in generate_all_labeled_graphs(n):
-        optimum = brute_force_optimum(g)
+        optimum = exact_optimum(g)
 
         for algo in [lambda graph: sare(graph, 1.0, 0.0), min_degree]:
             result = algo(g)

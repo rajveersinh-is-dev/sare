@@ -35,7 +35,7 @@ Graph = sare_ref.Graph
 sare = sare_ref.sare
 min_degree = sare_ref.min_degree
 min_fill = sare_ref.min_fill
-brute_force_optimum = sare_ref.brute_force_optimum
+exact_optimum = sare_ref.exact_optimum
 evaluate_order = sare_ref.evaluate_order
 read_edge_list = sare_ref.read_edge_list
 
@@ -222,13 +222,13 @@ def test_rust_matches_python_with_lookahead():
 
 
 # ---------------------------------------------------------------------------
-# brute-force differential (small graphs): SARE fill >= optimum fill
+# exact DP differential (small graphs): SARE fill >= optimum fill
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("n", range(1, 9))
+@pytest.mark.parametrize("n", range(1, 15))
 def test_sare_fill_ge_optimum(n):
     g = rand_graph(n, n, seed=500 + n)
-    opt = brute_force_optimum(g)
+    opt = exact_optimum(g)
     r = sare(g, 1.0, 0.0)
     assert r["fill_count"] >= opt["fill_count"], (
         f"SARE fill {r['fill_count']} < optimum {opt['fill_count']} (impossible)")
@@ -236,24 +236,24 @@ def test_sare_fill_ge_optimum(n):
         f"SARE width {r['width']} < optimum {opt['width']} (impossible)")
 
 
-@pytest.mark.parametrize("n", range(1, 9))
+@pytest.mark.parametrize("n", range(1, 15))
 def test_sare_optimal_on_paths(n):
     g = Graph(n)
     for i in range(n - 1):
         g.add_edge(i, i + 1)
-    opt = brute_force_optimum(g)
+    opt = exact_optimum(g)
     r = sare(g, 1.0, 0.0)
     assert r["fill_count"] == opt["fill_count"] == 0
     assert r["width"] == opt["width"]
 
 
-@pytest.mark.parametrize("n", range(1, 9))
+@pytest.mark.parametrize("n", range(1, 15))
 def test_sare_optimal_on_cliques(n):
     g = Graph(n)
     for i in range(n):
         for j in range(i + 1, n):
             g.add_edge(i, j)
-    opt = brute_force_optimum(g)
+    opt = exact_optimum(g)
     r = sare(g, 1.0, 0.0)
     assert r["fill_count"] == opt["fill_count"] == 0
     assert r["width"] == opt["width"]

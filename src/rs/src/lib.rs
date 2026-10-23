@@ -267,65 +267,135 @@ fn look_ahead(g: &Graph, v: usize) -> f64 {
     sum
 }
 
-/// Exact optimum (minimum fill, then minimum width) by exhaustive search over all
-/// permutations. Only feasible for n <= ~10. Used for verification.
-pub fn brute_force_optimum(graph: &Graph) -> OrderingResult {
+/// Exact optimum (minimum fill, then minimum width) by dynamic programming over subsets.
+/// Feasible for n <= ~20. Used for verification.
+pub fn exact_optimum(graph: &Graph) -> OrderingResult {
     let n = graph.n;
-    assert!(n <= 11, "brute force feasible only for n <= 11, got {}", n);
-    let mut best_fill = usize::MAX;
-    let mut best_width = usize::MAX;
-    let mut best_order: Vec<usize> = vec![];
+    if n == 0 {
+        return OrderingResult { order: vec![], fill_count: 0, width: 0, fill_edges_added: 0 };
+    }
+    // We allow DP for up to n=20; beyond that we should assert!
+    assert!(n <= 20, "DP exact optimum feasible only for n <= 20, got {}", n);
 
-    // Simple but exponential: clone graph at each recursion level.
-    fn rec(
-        g: &Graph,
-        remaining: &[usize],
-        current_fill: usize,
-        current_width: usize,
-        best_fill: &mut usize,
-        best_width: &mut usize,
-        best_order: &mut Vec<usize>,
-        prefix: &mut Vec<usize>,
-    ) {
-        if remaining.is_empty() {
-            if current_fill < *best_fill
-                || (current_fill == *best_fill && current_width < *best_width)
-            {
-                *best_fill = current_fill;
-                *best_width = current_width;
-                *best_order = prefix.clone();
-            }
-            return;
-        }
-        if current_fill > *best_fill {
-            return;
-        }
-        for i in 0..remaining.len() {
-            let v = remaining[i];
-            let mut g2 = g.clone();
-            let d = g2.degree(v);
-            let new_width = current_width.max(d);
-            let added = g2.eliminate(v);
-            let new_fill = current_fill + added;
-            let mut next_remaining = remaining.to_vec();
-            next_remaining.remove(i);
-            prefix.push(v);
-            rec(&g2, &next_remaining, new_fill, new_width, best_fill, best_width,
-                best_order, prefix);
-            prefix.pop();
+    let mut dp_fill = vec![usize::MAX; 1 << n];
+    let mut dp_tw = vec![usize::MAX; 1 << n];
+    let mut parent_fill = vec![usize::MAX; 1 << n];
+
+    dp_fill[0] = 0;
+    dp_tw[0] = 0;
+
+    let mut adj_mask = vec![0usize; n];
+    for i in 0..n {
+        for &u in &graph.adj[i] {
+            adj_mask[i] |= 1 << u;
         }
     }
 
-    let g0 = graph.clone();
-    let rem: Vec<usize> = (0..n).collect();
-    let mut prefix: Vec<usize> = Vec::new();
-    rec(&g0, &rem, 0, 0, &mut best_fill, &mut best_width, &mut best_order, &mut prefix);
+    for mask in 1..(1 << n) {
+        let mut best_fill = usize::MAX;
+        let mut best_tw = usize::MAX;
+        let mut best_p = usize::MAX;
+
+        for v in 0..n {
+            if (mask & (1 << v)) != 0 {
+                let s = mask & !(1 << v);
+                if dp_fill[s] == usize::MAX {
+                    continue;
+                }
+
+                // connected components of s
+                let mut unvisited = s;
+                let mut comps_adj = Vec::with_capacity(n); // Can optimize slightly
+                while unvisited != 0 {
+                    let start = unvisited.trailing_zeros() as usize;
+                    let mut comp = 1 << start;
+                    let mut queue = vec![start];
+                    unvisited &= !(1 << start);
+                    while let Some(node) = queue.pop() {
+                        let mut unvisited_nbrs = adj_mask[node] & unvisited;
+                        while unvisited_nbrs != 0 {
+                            let nbr = unvisited_nbrs.trailing_zeros() as usize;
+                            comp |= 1 << nbr;
+                            unvisited &= !(1 << nbr);
+                            unvisited_nbrs &= !(1 << nbr);
+                            queue.push(nbr);
+                        }
+                    }
+                    let mut comp_adj = 0usize;
+                    let mut temp: usize = comp;
+                    while temp != 0 {
+                        let node = temp.trailing_zeros() as usize;
+                        comp_adj |= adj_mask[node];
+                        temp &= !(1 << node);
+                    }
+                    comps_adj.push(comp_adj);
+                }
+
+                let mut u_mask = adj_mask[v] & !s;
+                for comp_adj in &comps_adj {
+                    if (comp_adj & (1 << v)) != 0 {
+                        u_mask |= comp_adj & !s;
+                    }
+                }
+                u_mask &= !(1 << v);
+
+                let mut fill = 0;
+                let mut degree = 0;
+                let mut u_iter = u_mask;
+                while u_iter != 0 {
+                    degree += 1;
+                    let x = u_iter.trailing_zeros() as usize;
+                    u_iter &= !(1 << x);
+                    let mut y_iter = u_iter;
+                    while y_iter != 0 {
+                        let y = y_iter.trailing_zeros() as usize;
+                        y_iter &= !(1 << y);
+
+                        let mut adj_in_gs = (adj_mask[x] & (1 << y)) != 0;
+                        if !adj_in_gs {
+                            for comp_adj in &comps_adj {
+                                if (comp_adj & (1 << x)) != 0 && (comp_adj & (1 << y)) != 0 {
+                                    adj_in_gs = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if !adj_in_gs {
+                            fill += 1;
+                        }
+                    }
+                }
+
+                let new_fill = dp_fill[s] + fill;
+                let new_tw = dp_tw[s].max(degree);
+
+                // Compare by min fill, then min tw
+                if new_fill < best_fill || (new_fill == best_fill && new_tw < best_tw) {
+                    best_fill = new_fill;
+                    best_tw = new_tw;
+                    best_p = v;
+                }
+            }
+        }
+        dp_fill[mask] = best_fill;
+        dp_tw[mask] = best_tw;
+        parent_fill[mask] = best_p;
+    }
+
+    let mut fill_order = Vec::with_capacity(n);
+    let mut curr = (1 << n) - 1;
+    while curr > 0 {
+        let v = parent_fill[curr];
+        fill_order.push(v);
+        curr &= !(1 << v);
+    }
+    fill_order.reverse();
 
     OrderingResult {
-        order: best_order,
-        fill_count: best_fill,
-        width: best_width,
-        fill_edges_added: best_fill,
+        order: fill_order,
+        fill_count: dp_fill[(1 << n) - 1],
+        width: dp_tw[(1 << n) - 1],
+        fill_edges_added: dp_fill[(1 << n) - 1],
     }
 }
 
@@ -433,10 +503,10 @@ mod tests {
     }
 
     #[test]
-    fn brute_force_matches_sare_on_path_small() {
-        for n in 1..=8usize {
+    fn exact_optimum_matches_sare_on_path_small() {
+        for n in 1..=14usize {
             let g = path(n);
-            let opt = brute_force_optimum(&g);
+            let opt = exact_optimum(&g);
             let rs = sare(&g, 1.0, 0.0);
             // SARE on a path should find the optimum (zero fill, width 1)
             assert_eq!(rs.fill_count, opt.fill_count, "path n={}", n);
