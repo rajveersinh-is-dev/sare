@@ -57,7 +57,11 @@ impl Graph {
                 }
             }
         }
-        d * (d - 1) / 2 - induced
+        if d < 2 {
+            0
+        } else {
+            d * (d - 1) / 2 - induced
+        }
     }
 
     /// Eliminate v: make N(v) a clique (adding fill edges), then remove v.
@@ -248,6 +252,8 @@ pub fn sare(graph: &Graph, alpha: f64, beta: f64) -> OrderingResult {
         fill_edges_added: fill_count,
     }
 }
+
+pub mod verification;
 
 /// 1-step lookahead estimate (look-A): sum of neighbor degrees after eliminating v.
 fn look_ahead(g: &Graph, v: usize) -> f64 {
