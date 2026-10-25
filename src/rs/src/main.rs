@@ -98,6 +98,10 @@ fn run_algorithm(g: &Graph, algo: &str, alpha: f64, beta: f64) -> Output {
             let r = sare::min_degree(g);
             (r.order, r.fill_count, r.width, r.fill_edges_added)
         }
+        "fast-min-degree" => {
+            let r = sare::fast_min_degree(g);
+            (r.order, r.fill_count, r.width, r.fill_edges_added)
+        }
         "min-fill" => {
             let r = sare::min_fill(g);
             (r.order, r.fill_count, r.width, r.fill_edges_added)
@@ -122,7 +126,7 @@ fn main() {
     if args.len() < 3 {
         eprintln!(
             "Usage: sare <input.graph> <algo> [alpha] [beta]
-algo: sare, sare-a0, sare-a2, sare-lookahead, min-degree, min-fill
+algo: sare, sare-a0, sare-a2, sare-lookahead, min-degree, fast-min-degree, min-fill
 Reads Matrix Market coordinate or plain edge list (1-based). Prints JSON to stdout."
         );
         std::process::exit(2);

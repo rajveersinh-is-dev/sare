@@ -521,3 +521,58 @@ mod tests {
         let _ = sare(&g, 0.0, 0.0); // pure min degree via safe reductions + degree
     }
 }
+
+pub fn fast_min_degree(graph: &Graph) -> OrderingResult {
+    let mut g = graph.clone();
+    let n = g.n;
+    let mut order = Vec::with_capacity(n);
+    let mut fill_count = 0usize;
+    let mut width = 0usize;
+
+    // Array of buckets for degrees
+    let mut buckets: Vec<HashSet<usize>> = vec![HashSet::new(); n + 1];
+    for v in 0..n {
+        let d = g.degree(v);
+        buckets[d].insert(v);
+    }
+
+    let mut min_bucket = 0;
+
+    for _ in 0..n {
+        while min_bucket <= n && buckets[min_bucket].is_empty() {
+            min_bucket += 1;
+        }
+        if min_bucket > n {
+            break;
+        }
+
+        let v = *buckets[min_bucket].iter().next().unwrap();
+        buckets[min_bucket].remove(&v);
+
+        width = width.max(g.degree(v));
+
+        let nbrs: Vec<usize> = g.adj[v].iter().copied().collect();
+        for &u in &nbrs {
+            let old_d = g.degree(u);
+            buckets[old_d].remove(&u);
+        }
+
+        fill_count += g.eliminate(v);
+        order.push(v);
+
+        for &u in &nbrs {
+            let new_d = g.degree(u);
+            buckets[new_d].insert(u);
+            if new_d < min_bucket {
+                min_bucket = new_d;
+            }
+        }
+    }
+    OrderingResult {
+        order,
+        fill_count,
+        width,
+        fill_edges_added: fill_count,
+    }
+}
+pub mod isomorphism;

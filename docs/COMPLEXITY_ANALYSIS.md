@@ -89,6 +89,7 @@ not justified without evidence of benefit. It is an ablation.
 | Result | Time | Space | Quality guarantee |
 |--------|------|-------|-------------------|
 | Minimum Degree (MD), Tinney & Walker 1967 | O(n·m) | O(n + m) | none |
+| Fast Minimum Degree (Bucket Queue) | O(m + F) | O(n + m) | none |
 | Approximate Minimum Degree (AMD), Amestoy/Davis/Duff 1996 | O(n·m) | O(n + m) | none |
 | Minimum Fill-in (MF) | O(n³) naïve | O(n + m) | none |
 | SARE (this work), naïve | O(n² + n·Δ²) | O(n²) worst | none |

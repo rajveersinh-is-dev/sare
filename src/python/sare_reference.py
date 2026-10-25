@@ -349,3 +349,44 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+def fast_min_degree(graph: Graph) -> Dict[str, object]:
+    """Greedy minimum degree using a bucket queue for faster selection."""
+    g = graph.copy()
+    n = g.n
+    order: List[int] = []
+    fill_count = 0
+    width = 0
+
+    buckets: List[Set[int]] = [set() for _ in range(n + 1)]
+    for v in range(n):
+        buckets[g.degree(v)].add(v)
+
+    min_bucket = 0
+
+    for _ in range(n):
+        while min_bucket <= n and not buckets[min_bucket]:
+            min_bucket += 1
+        if min_bucket > n:
+            break
+
+        v = next(iter(buckets[min_bucket]))
+        buckets[min_bucket].remove(v)
+
+        width = max(width, g.degree(v))
+
+        nbrs = list(g.adj[v])
+        for u in nbrs:
+            buckets[g.degree(u)].remove(u)
+
+        fill_count += g.eliminate(v)
+        order.append(v)
+
+        for u in nbrs:
+            new_d = g.degree(u)
+            buckets[new_d].add(u)
+            if new_d < min_bucket:
+                min_bucket = new_d
+
+    return {"order": order, "fill_count": fill_count, "width": width,
+            "fill_edges_added": fill_count}
