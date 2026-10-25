@@ -25,6 +25,7 @@ verified implementation with proved correctness, honestly evaluated.
 | Fill / width reported exactly match elimination | Proved + tested |
 | Filled graph is chordal; order is a PEO | Proved |
 | Terminates on every finite input | Proved + tested |
+| Isomorphic / Canonical permutation correctness | Exhaustively proved (n<=6) |
 | Beats minimum degree / AMD in fill | **No** (comparable, sometimes worse) |
 | Faster than minimum degree / AMD | **No** (slower) |
 | New asymptotic bound over AMD's O(n·m) | **No** (not claimed) |
@@ -62,8 +63,8 @@ Graph input: Matrix Market coordinate file or plain whitespace edge list (1-base
 ## Tests
 
 ```sh
-python -m pytest tests/ -q            # Python reference (55 tests)
-cd src/rs && cargo test --release     # Rust library
+python -m pytest tests/ -q            # Python reference
+cd src/rs && cargo test --release     # Rust library (includes exhaustive non-isomorphic testing)
 ```
 
 ## Benchmarks

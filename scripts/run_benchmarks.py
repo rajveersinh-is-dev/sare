@@ -52,7 +52,7 @@ RAW_DIR = REPO_ROOT / "results" / "raw"
 PROC_DIR = REPO_ROOT / "results" / "processed"
 FIG_DIR = REPO_ROOT / "results" / "figures"
 
-ALGORITHMS = ["sare", "sare-a0", "sare-a2", "sare-lookahead", "min-degree", "min-fill"]
+ALGORITHMS = ["sare", "sare-a0", "sare-a2", "sare-lookahead", "min-degree", "fast-min-degree", "min-fill"]
 DEFAULT_REPS = 5
 BOOTSTRAP_ITERS = 2000
 
@@ -156,6 +156,20 @@ def sparse_random(n, density, seed=0):
     return edges
 
 
+def barabasi_albert(n, m, seed=0):
+    """Scale-free network."""
+    import networkx as nx
+    G = nx.barabasi_albert_graph(n, m, seed=seed)
+    return list(G.edges())
+
+
+def watts_strogatz(n, k, p, seed=0):
+    """Small-world network."""
+    import networkx as nx
+    G = nx.watts_strogatz_graph(n, k, p, seed=seed)
+    return list(G.edges())
+
+
 def instance_families(quick=False):
     """Yield (family, label, n, edge_list_text)."""
     if quick:
@@ -170,6 +184,8 @@ def instance_families(quick=False):
             ("chordal", "chordal_60", 60, chordal_graph(60, seed=7)),
             ("poisson_2d", "poisson_8x8", 64, poisson_2d(8, seed=0)),
             ("sparse_random", "sr_60_d0.05", 60, sparse_random(60, 0.05, seed=8)),
+            ("barabasi_albert", "ba_60_m2", 60, barabasi_albert(60, 2, seed=9)),
+            ("watts_strogatz", "ws_60_k4_p0.1", 60, watts_strogatz(60, 4, 0.1, seed=10)),
         ]
     else:
         specs = [
@@ -191,6 +207,10 @@ def instance_families(quick=False):
             ("poisson_2d", "poisson_20x20", 400, poisson_2d(20, seed=0)),
             ("sparse_random", "sr_100_d0.03", 100, sparse_random(100, 0.03, seed=16)),
             ("sparse_random", "sr_200_d0.02", 200, sparse_random(200, 0.02, seed=17)),
+            ("barabasi_albert", "ba_100_m2", 100, barabasi_albert(100, 2, seed=18)),
+            ("barabasi_albert", "ba_200_m2", 200, barabasi_albert(200, 2, seed=19)),
+            ("watts_strogatz", "ws_100_k4_p0.1", 100, watts_strogatz(100, 4, 0.1, seed=20)),
+            ("watts_strogatz", "ws_200_k4_p0.1", 200, watts_strogatz(200, 4, 0.1, seed=21)),
         ]
     for family, label, n, edges in specs:
         yield family, label, n, _edges_text(n, edges)
