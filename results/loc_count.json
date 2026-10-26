@@ -1,15 +1,16 @@
 {
-  "generated_at_utc": "2026-10-19T08:26:29.302760+00:00",
-  "total_lines": 3941,
-  "files": 26,
+  "generated_at_utc": "2026-10-26T01:00:54.929063+00:00",
+  "total_lines": 5860,
+  "files": 47,
   "by_extension": {
-    ".md": 1951,
-    ".py": 1124,
-    ".rs": 586,
+    ".md": 1984,
+    ".py": 1972,
+    ".rs": 1453,
     ".tex": 197,
-    ".yml": 34,
+    ".yml": 186,
     ".cff": 32,
-    ".toml": 17
+    ".toml": 21,
+    ".json": 15
   },
   "note": "Physical lines in git-tracked source/docs; updated on push by CI."
 }

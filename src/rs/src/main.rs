@@ -106,6 +106,14 @@ fn run_algorithm(g: &Graph, algo: &str, alpha: f64, beta: f64) -> Output {
             let r = sare::min_fill(g);
             (r.order, r.fill_count, r.width, r.fill_edges_added)
         }
+        "qmd" => {
+            let r = sare::qmd(g);
+            (r.order, r.fill_count, r.width, r.fill_edges_added)
+        }
+        "amd" => {
+            let r = sare::amd(g);
+            (r.order, r.fill_count, r.width, r.fill_edges_added)
+        }
         _ => panic!("unknown algorithm: {}", algo),
     };
     Output {
@@ -126,7 +134,7 @@ fn main() {
     if args.len() < 3 {
         eprintln!(
             "Usage: sare <input.graph> <algo> [alpha] [beta]
-algo: sare, sare-a0, sare-a2, sare-lookahead, min-degree, fast-min-degree, min-fill
+algo: sare, sare-a0, sare-a2, sare-lookahead, min-degree, fast-min-degree, min-fill, qmd, amd
 Reads Matrix Market coordinate or plain edge list (1-based). Prints JSON to stdout."
         );
         std::process::exit(2);

@@ -576,3 +576,4 @@ pub fn fast_min_degree(graph: &Graph) -> OrderingResult {
     }
 }
 pub mod isomorphism;
+pub mod amd; pub use amd::{amd, qmd};
