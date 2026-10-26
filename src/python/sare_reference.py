@@ -317,7 +317,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="SARE reference (Python)")
     parser.add_argument("input", help="edge list or Matrix Market coordinate file")
     parser.add_argument("algo", choices=["sare", "sare-a0", "sare-a2",
-                        "sare-lookahead", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd"])
+                        "sare-lookahead", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd", "nd", "qmd-lookahead"])
     parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--beta", type=float, default=0.0)
     args = parser.parse_args(argv)
@@ -343,6 +343,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.algo == "amd":
         from .amd import approximate_minimum_degree
         res = approximate_minimum_degree(g)
+    elif args.algo == "nd":
+        from .nd import spectral_nested_dissection
+        res = spectral_nested_dissection(g)
+    elif args.algo == "qmd-lookahead":
+        from .amd import qmd_lookahead
+        res = qmd_lookahead(g, args.beta)
     else:
         res = min_fill(g)
 

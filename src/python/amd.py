@@ -129,3 +129,41 @@ def approximate_minimum_degree(graph: Graph) -> Dict[str, Any]:
         order.append(best_v)
 
     return {"order": order, "fill_count": fill_count, "width": width, "fill_edges_added": fill_count}
+
+def look_ahead_qmd(qg: QuotientGraph, v: int) -> float:
+    """1-step lookahead estimate (look-A) for quotient graph:
+    sum of exact degrees of live neighbors after eliminating v."""
+    return sum(max(qg.exact_degree(u) - 1, 0) for u in qg.live_neighbors[v])
+
+def qmd_lookahead(graph: Graph, beta: float = 1.0) -> Dict[str, Any]:
+    """Quotient-graph based Exact Minimum Degree with lookahead (QMD-lookahead)."""
+    g = graph.copy()
+    n = g.n
+    qg = QuotientGraph(g)
+    order: List[int] = []
+    fill_count = 0
+    width = 0
+
+    for _ in range(n):
+        best_v = -1
+        min_score = float('inf')
+
+        for v in range(n):
+            if not qg.is_eliminated[v]:
+                deg = qg.exact_degree(v)
+                lookahead_val = look_ahead_qmd(qg, v)
+                score = deg + beta * lookahead_val
+
+                if score < min_score or (score == min_score and v < best_v):
+                    min_score = score
+                    best_v = v
+
+        if best_v == -1:
+            break
+
+        true_deg = qg.exact_degree(best_v)
+        width = max(width, true_deg)
+        fill_count += qg.eliminate(best_v, g)
+        order.append(best_v)
+
+    return {"order": order, "fill_count": fill_count, "width": width, "fill_edges_added": fill_count}

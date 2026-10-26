@@ -191,3 +191,57 @@ pub fn amd(graph: &Graph) -> OrderingResult {
         fill_edges_added: fill_count,
     }
 }
+
+pub fn look_ahead_qmd(qg: &QuotientGraph, v: usize) -> f64 {
+    let mut score = 0.0;
+    for &u in &qg.live_neighbors[v] {
+        let deg = qg.exact_degree(u);
+        if deg > 1 {
+            score += (deg - 1) as f64;
+        }
+    }
+    score
+}
+
+pub fn qmd_lookahead(graph: &Graph, beta: f64) -> OrderingResult {
+    let mut g = graph.clone();
+    let n = g.n;
+    let mut qg = QuotientGraph::new(&g);
+    let mut order = Vec::with_capacity(n);
+    let mut fill_count = 0usize;
+    let mut width = 0usize;
+
+    for _ in 0..n {
+        let mut best_v = usize::MAX;
+        let mut min_score = f64::INFINITY;
+
+        for v in 0..n {
+            if !qg.is_eliminated[v] {
+                let deg = qg.exact_degree(v) as f64;
+                let lookahead_val = look_ahead_qmd(&qg, v);
+                let score = deg + beta * lookahead_val;
+
+                if score < min_score {
+                    min_score = score;
+                    best_v = v;
+                } else if (score - min_score).abs() < 1e-9 && v < best_v {
+                    best_v = v;
+                }
+            }
+        }
+
+        if best_v == usize::MAX { break; }
+
+        let true_deg = qg.exact_degree(best_v);
+        width = width.max(true_deg);
+        fill_count += qg.eliminate(best_v, &mut g);
+        order.push(best_v);
+    }
+
+    OrderingResult {
+        order,
+        fill_count,
+        width,
+        fill_edges_added: fill_count,
+    }
+}
