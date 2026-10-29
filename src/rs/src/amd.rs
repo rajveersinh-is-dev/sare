@@ -8,11 +8,11 @@ pub struct QuotientGraph {
     pub n: usize,
     pub is_eliminated: Vec<bool>,
     /// For a live node: its directly connected live neighbors.
-    pub live_neighbors: Vec<HashSet<usize>>,
+    pub live_neighbors: Vec<Vec<usize>>,
     /// For a live node: the set of adjacent Enodes (elements).
-    pub elements: Vec<HashSet<usize>>,
+    pub elements: Vec<Vec<usize>>,
     /// For an Enode (element): the set of live nodes in its clique.
-    pub members: Vec<HashSet<usize>>,
+    pub members: Vec<Vec<usize>>,
     /// Degree upper bound (or exact degree) for each live node.
     pub degree_bound: Vec<usize>,
 }
@@ -20,11 +20,11 @@ pub struct QuotientGraph {
 impl QuotientGraph {
     pub fn new(g: &Graph) -> Self {
         let n = g.n;
-        let mut live_neighbors = vec![HashSet::new(); n];
+        let mut live_neighbors = vec![Vec::new(); n];
         let mut degree_bound = vec![0; n];
 
         for u in 0..n {
-            live_neighbors[u] = g.adj[u].clone();
+            live_neighbors[u] = g.adj[u].iter().copied().collect();
             degree_bound[u] = g.adj[u].len();
         }
 
@@ -32,9 +32,21 @@ impl QuotientGraph {
             n,
             is_eliminated: vec![false; n],
             live_neighbors,
-            elements: vec![HashSet::new(); n],
-            members: vec![HashSet::new(); n],
+            elements: vec![Vec::new(); n],
+            members: vec![Vec::new(); n],
             degree_bound,
+        }
+    }
+
+    fn vec_insert(vec: &mut Vec<usize>, val: usize) {
+        if !vec.contains(&val) {
+            vec.push(val);
+        }
+    }
+
+    fn vec_remove(vec: &mut Vec<usize>, val: usize) {
+        if let Some(pos) = vec.iter().position(|&x| x == val) {
+            vec.swap_remove(pos);
         }
     }
 
@@ -44,18 +56,18 @@ impl QuotientGraph {
         self.is_eliminated[v] = true;
 
         // Find all unique live neighbors of `v` in the quotient graph.
-        let mut L_v: HashSet<usize> = self.live_neighbors[v].clone();
+        let mut l_v: HashSet<usize> = self.live_neighbors[v].iter().copied().collect();
         for &e in &self.elements[v] {
             for &u in &self.members[e] {
                 if u != v && !self.is_eliminated[u] {
-                    L_v.insert(u);
+                    l_v.insert(u);
                 }
             }
         }
 
         let mut fill_added = 0;
 
-        let l_v_vec: Vec<usize> = L_v.into_iter().collect();
+        let l_v_vec: Vec<usize> = l_v.into_iter().collect();
         for i in 0..l_v_vec.len() {
             for j in (i + 1)..l_v_vec.len() {
                 let a = l_v_vec[i];
@@ -78,11 +90,11 @@ impl QuotientGraph {
         let elements_v = self.elements[v].clone();
 
         for &u in &l_v_vec {
-            self.live_neighbors[u].remove(&v);
-            self.elements[u].insert(v);
+            Self::vec_remove(&mut self.live_neighbors[u], v);
+            Self::vec_insert(&mut self.elements[u], v);
 
             for &e in &elements_v {
-                self.elements[u].remove(&e);
+                Self::vec_remove(&mut self.elements[u], e);
             }
         }
 
@@ -90,15 +102,15 @@ impl QuotientGraph {
     }
 
     pub fn exact_degree(&self, u: usize) -> usize {
-        let mut L_u: HashSet<usize> = self.live_neighbors[u].clone();
+        let mut l_u: HashSet<usize> = self.live_neighbors[u].iter().copied().collect();
         for &e in &self.elements[u] {
             for &w in &self.members[e] {
                 if w != u && !self.is_eliminated[w] {
-                    L_u.insert(w);
+                    l_u.insert(w);
                 }
             }
         }
-        L_u.len()
+        l_u.len()
     }
 
     pub fn approx_degree(&self, u: usize) -> usize {
