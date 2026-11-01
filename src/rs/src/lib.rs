@@ -579,3 +579,4 @@ pub mod isomorphism;
 pub mod amd; pub use amd::{amd, qmd, qmd_lookahead};
 pub mod nd; pub use nd::nested_dissection;
 pub mod metis; pub use metis::metis_nested_dissection;
+pub mod cholesky;
