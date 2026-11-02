@@ -56,49 +56,52 @@ pub fn graph_to_spd_csc(graph: &Graph, order: &[usize], alpha: f64) -> SparseMat
     }
 }
 
+use crate::symbolic::{elimination_tree, symbolic_factorize};
+
 /// Performs a sparse left-looking Cholesky factorization L L^T = A.
 /// Returns (L, non_zero_count).
 /// Assumes A is in CSC format and represents the lower triangular part of a symmetric matrix.
 pub fn cholesky_factorize(a: &SparseMatrix) -> Result<(SparseMatrix, usize), String> {
     let n = a.n;
-    let mut l_col_ptrs = vec![0; n + 1];
-    let mut l_row_indices = Vec::new();
-    let mut l_values = Vec::new();
+
+    // 1. Symbolic Factorization phase
+    let parent = elimination_tree(a);
+    let (l_col_ptrs, l_row_indices) = symbolic_factorize(a, &parent);
+    let mut l_values = vec![0.0; l_row_indices.len()];
+
+    let mut updates: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+    for k in 0..n {
+        if l_col_ptrs[k] + 1 < l_col_ptrs[k + 1] {
+            let first_off_diag_idx = l_col_ptrs[k] + 1;
+            let j = l_row_indices[first_off_diag_idx];
+            updates[j].push((k, first_off_diag_idx));
+        }
+    }
 
     // Workspace
     let mut x: Vec<f64> = vec![0.0; n];
-    let mut non_zero: Vec<bool> = vec![false; n];
 
     for j in 0..n {
         // 1. Gather the j-th column of A into x
         for p in a.col_ptrs[j]..a.col_ptrs[j + 1] {
             let r = a.row_indices[p];
             x[r] = a.values[p];
-            non_zero[r] = true;
         }
 
         // 2. Subtract L_{j,k} * L_{*,k} for k < j
-        for k in 0..j {
-            let mut l_jk = 0.0;
-            // Check if L_{j,k} is non-zero
-            for p in l_col_ptrs[k]..l_col_ptrs[k + 1] {
-                if l_row_indices[p] == j {
-                    l_jk = l_values[p];
-                    break;
-                }
+        for i_update in 0..updates[j].len() {
+            let (k, p_jk) = updates[j][i_update];
+            let l_jk = l_values[p_jk];
+
+            for p in p_jk..l_col_ptrs[k + 1] {
+                let r = l_row_indices[p];
+                x[r] -= l_jk * l_values[p];
             }
 
-            if l_jk != 0.0 {
-                for p in l_col_ptrs[k]..l_col_ptrs[k + 1] {
-                    let r = l_row_indices[p];
-                    if r >= j {
-                        let is_nz: bool = non_zero[r];
-                        if !is_nz {
-                            non_zero[r] = true;
-                        }
-                        x[r] -= l_jk * l_values[p];
-                    }
-                }
+            let next_p_jk = p_jk + 1;
+            if next_p_jk < l_col_ptrs[k + 1] {
+                let next_j = l_row_indices[next_p_jk];
+                updates[next_j].push((k, next_p_jk));
             }
         }
 
@@ -109,28 +112,17 @@ pub fn cholesky_factorize(a: &SparseMatrix) -> Result<(SparseMatrix, usize), Str
 
         let l_jj = x[j].sqrt();
 
-        // Store L_{j, j}
-        l_row_indices.push(j);
-        l_values.push(l_jj);
-
-        // Reset x[j] and non_zero flag
+        let diag_p = l_col_ptrs[j];
+        l_values[diag_p] = l_jj;
         x[j] = 0.0;
-        non_zero[j] = false;
 
         // 4. Compute and store L[i, j] for i > j
-        for i in (j + 1)..n {
-            if non_zero[i] {
-                let val = x[i] / l_jj;
-                if val.abs() > 1e-12 { // Threshold for numerical zeros
-                    l_row_indices.push(i);
-                    l_values.push(val);
-                }
-                x[i] = 0.0;
-                non_zero[i] = false;
-            }
+        for p in (l_col_ptrs[j] + 1)..l_col_ptrs[j + 1] {
+            let i = l_row_indices[p];
+            let val = x[i] / l_jj;
+            l_values[p] = val;
+            x[i] = 0.0;
         }
-
-        l_col_ptrs[j + 1] = l_row_indices.len();
     }
 
     let nnz_strict_lower = l_row_indices.len() - n;
