@@ -135,6 +135,85 @@ def look_ahead_qmd(qg: QuotientGraph, v: int) -> float:
     sum of exact degrees of live neighbors after eliminating v."""
     return sum(max(qg.exact_degree(u) - 1, 0) for u in qg.live_neighbors[v])
 
+def sare_qmd(graph: Graph, alpha: float = 1.0, beta: float = 0.0) -> Dict[str, Any]:
+    g = graph.copy()
+    n = g.n
+    qg = QuotientGraph(g)
+    order: List[int] = []
+    fill_count = 0
+    width = 0
+
+    # Phase A: safe reductions
+    queue = [v for v in range(n) if qg.exact_degree(v) <= 1]
+    qhead = 0
+    while qhead < len(queue):
+        v = queue[qhead]
+        qhead += 1
+        if qg.is_eliminated[v]:
+            continue
+        if qg.exact_degree(v) > 1:
+            continue
+
+        nbrs = set(qg.live_neighbors[v])
+        for e in qg.elements[v]:
+            for u in qg.members[e]:
+                if u != v and not qg.is_eliminated[u]:
+                    nbrs.add(u)
+
+        deg = qg.exact_degree(v)
+        width = max(width, deg)
+        fill_count += qg.eliminate(v, g)
+        order.append(v)
+
+        for u in nbrs:
+            if not qg.is_eliminated[u] and qg.exact_degree(u) <= 1:
+                queue.append(u)
+
+    # Phase B: adaptive greedy
+    for _ in range(n - len(order)):
+        best_v = -1
+        min_score = float('inf')
+        best_fill = 0
+        best_deg = 0
+
+        for v in range(n):
+            if not qg.is_eliminated[v]:
+                deg = qg.exact_degree(v)
+
+                # exact fill
+                fill = 0
+                l_v = set(qg.live_neighbors[v])
+                for e in qg.elements[v]:
+                    for u in qg.members[e]:
+                        if u != v and not qg.is_eliminated[u]:
+                            l_v.add(u)
+
+                l_v_list = list(l_v)
+                for i in range(len(l_v_list)):
+                    for j in range(i + 1, len(l_v_list)):
+                        if l_v_list[j] not in g.adj[l_v_list[i]]:
+                            fill += 1
+
+                lookahead_val = look_ahead_qmd(qg, v) if beta > 0.0 else 0.0
+                score = deg + alpha * fill + beta * lookahead_val
+
+                if score < min_score or (abs(score - min_score) < 1e-9 and v < best_v):
+                    min_score = score
+                    best_v = v
+                    best_fill = fill
+                    best_deg = deg
+
+        if best_v == -1:
+            break
+
+        width = max(width, best_deg)
+        f = qg.eliminate(best_v, g)
+        assert f == best_fill
+        fill_count += f
+        order.append(best_v)
+
+    return {"order": order, "fill_count": fill_count, "width": width, "fill_edges_added": fill_count}
+
 def qmd_lookahead(graph: Graph, beta: float = 1.0) -> Dict[str, Any]:
     """Quotient-graph based Exact Minimum Degree with lookahead (QMD-lookahead)."""
     g = graph.copy()

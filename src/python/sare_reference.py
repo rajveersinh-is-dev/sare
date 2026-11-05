@@ -78,9 +78,8 @@ class Graph:
 
     def copy(self) -> "Graph":
         g = Graph(self.n)
-        for v in range(self.n):
-            g.adj[v] = set(self.adj[v])
-        g.eliminated = list(self.eliminated)
+        g.adj = [adj.copy() for adj in self.adj]
+        g.eliminated = self.eliminated.copy()
         return g
 
 
@@ -317,7 +316,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="SARE reference (Python)")
     parser.add_argument("input", help="edge list or Matrix Market coordinate file")
     parser.add_argument("algo", choices=["sare", "sare-a0", "sare-a2",
-                        "sare-lookahead", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd", "nd", "metis-nd", "qmd-lookahead"])
+                        "sare-lookahead", "sare-qmd", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd", "nd", "metis-nd", "qmd-lookahead"])
     parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--beta", type=float, default=0.0)
     args = parser.parse_args(argv)
@@ -333,6 +332,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         res = sare(g, 2.0, 0.0)
     elif args.algo == "sare-lookahead":
         res = sare(g, 1.0, 1.0)
+    elif args.algo == "sare-qmd":
+        from .amd import sare_qmd
+        res = sare_qmd(g, args.alpha, args.beta)
     elif args.algo == "min-degree":
         res = min_degree(g)
     elif args.algo == "fast-min-degree":
