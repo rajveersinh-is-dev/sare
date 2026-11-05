@@ -52,7 +52,7 @@ RAW_DIR = REPO_ROOT / "results" / "raw"
 PROC_DIR = REPO_ROOT / "results" / "processed"
 FIG_DIR = REPO_ROOT / "results" / "figures"
 
-ALGORITHMS = ["sare", "sare-a0", "sare-a2", "sare-lookahead", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd", "nd", "metis-nd", "qmd-lookahead"]
+ALGORITHMS = ["sare", "sare-a0", "sare-a2", "sare-lookahead", "sare-qmd", "min-degree", "fast-min-degree", "min-fill", "qmd", "amd", "nd", "metis-nd", "qmd-lookahead"]
 DEFAULT_REPS = 5
 BOOTSTRAP_ITERS = 2000
 
@@ -227,6 +227,8 @@ def alpha_beta(algo):
         return 2.0, 0.0
     if algo == "sare-lookahead":
         return 1.0, 1.0
+    if algo == "sare-qmd":
+        return 1.0, 0.0 # Standard SARE (alpha=1.0, beta=0.0)
     return 1.0, 0.0
 
 

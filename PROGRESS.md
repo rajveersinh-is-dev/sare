@@ -61,3 +61,22 @@ SUBSTANTIAL IMPROVEMENT VERIFIED.
 - Implement Metis / Spectral Bisection integration.
 - Reduce overhead in Python's Graph deepcopying mechanisms for large N.
 - Enhance lookahead logic using quotient graph implementations to potentially bridge AMD speed and exact minimum degree fill size.
+
+# Improvement Report (Quotient Graph Lookahead & Deepcopy Optimization)
+
+## Initiative and Rationale
+We needed to integrate the lookahead logic of SARE into a quotient graph wrapper. Doing so allows the SARE greedy heuristics to avoid tracking O(n^2) dense components actively and allows faster lookahead checks by leveraging exact upper bounds and exact structural logic in quotient format. We also needed to optimize the Python deepcopy mechanism used by the algorithm evaluation logic.
+
+## Capabilities Implemented
+- **Graph.copy() optimization**: Optimized python graph deepcopying by performing direct `set` shallow cloning to arrays inside `src/python/sare_reference.py`.
+- **sare_qmd**: Introduced a quotient graph implementation of SARE matching exactly standard SARE fill and width properties, but computed using clique tracking. Implemented in Rust `amd.rs` and python `amd.py`.
+- **Tests**: `test_sare_qmd_matches_sare` verified in python and rust.
+- **Benchmarks**: Benchmarking integrated to reflect performance.
+
+## Final State
+SUBSTANTIAL IMPROVEMENT VERIFIED.
+
+## Next Priorities
+- Implement Metis / Spectral Bisection integration (Further refine the existing code).
+- Investigate heuristic relaxations of SARE safe phase using purely spectral approaches.
+- Provide a hybrid AMD/SARE wrapper that switches from SARE to AMD once quotient density hits a threshold.

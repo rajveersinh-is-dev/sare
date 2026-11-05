@@ -215,6 +215,137 @@ pub fn look_ahead_qmd(qg: &QuotientGraph, v: usize) -> f64 {
     score
 }
 
+pub fn sare_qmd(graph: &Graph, alpha: f64, beta: f64) -> OrderingResult {
+    let mut g = graph.clone();
+    let n = g.n;
+    let mut qg = QuotientGraph::new(&g);
+    let mut order = Vec::with_capacity(n);
+    let mut fill_count = 0usize;
+    let mut width = 0usize;
+
+    // ---------- Phase A: safe reductions ----------
+    let mut queue: Vec<usize> = (0..n)
+        .filter(|&v| qg.exact_degree(v) <= 1)
+        .collect();
+    let mut qhead = 0;
+    while qhead < queue.len() {
+        let v = queue[qhead];
+        qhead += 1;
+        if qg.is_eliminated[v] { continue; }
+        if qg.exact_degree(v) > 1 { continue; }
+
+        // Find neighbors before elimination to re-check them
+        let mut nbrs = HashSet::new();
+        for &u in &qg.live_neighbors[v] {
+            nbrs.insert(u);
+        }
+        for &e in &qg.elements[v] {
+            for &u in &qg.members[e] {
+                if u != v && !qg.is_eliminated[u] {
+                    nbrs.insert(u);
+                }
+            }
+        }
+
+        let deg = qg.exact_degree(v);
+        width = width.max(deg);
+        let f = qg.eliminate(v, &mut g);
+        fill_count += f;
+        order.push(v);
+
+        for u in nbrs {
+            if !qg.is_eliminated[u] && qg.exact_degree(u) <= 1 {
+                queue.push(u);
+            }
+        }
+    }
+
+    // ---------- Phase B: adaptive greedy with lookahead ----------
+    loop {
+        let mut best_v = usize::MAX;
+        let mut min_score = f64::INFINITY;
+        let mut best_fill = 0;
+        let mut best_deg = 0;
+
+        for v in 0..n {
+            if !qg.is_eliminated[v] {
+                let deg = qg.exact_degree(v);
+
+                // compute exact fill by looking at g
+                let mut fill = 0;
+                let mut l_v = HashSet::new();
+                for &u in &qg.live_neighbors[v] { l_v.insert(u); }
+                for &e in &qg.elements[v] {
+                    for &u in &qg.members[e] {
+                        if u != v && !qg.is_eliminated[u] { l_v.insert(u); }
+                    }
+                }
+
+                let l_v_vec: Vec<usize> = l_v.into_iter().collect();
+                for i in 0..l_v_vec.len() {
+                    for j in (i+1)..l_v_vec.len() {
+                        if !g.adj[l_v_vec[i]].contains(&l_v_vec[j]) {
+                            fill += 1;
+                        }
+                    }
+                }
+
+                let lookahead_val = if beta > 0.0 { look_ahead_qmd(&qg, v) } else { 0.0 };
+                let score = deg as f64 + alpha * (fill as f64) + beta * lookahead_val;
+
+                if score < min_score {
+                    min_score = score;
+                    best_v = v;
+                    best_fill = fill;
+                    best_deg = deg;
+                } else if (score - min_score).abs() < 1e-9 && v < best_v {
+                    best_v = v;
+                    best_fill = fill;
+                    best_deg = deg;
+                }
+            }
+        }
+
+        if best_v == usize::MAX { break; }
+
+        width = width.max(best_deg);
+        let f = qg.eliminate(best_v, &mut g);
+        debug_assert_eq!(f, best_fill);
+        fill_count += f;
+        order.push(best_v);
+    }
+
+    OrderingResult {
+        order,
+        fill_count,
+        width,
+        fill_edges_added: fill_count,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Graph;
+
+    fn path_graph(n: usize) -> Graph {
+        let mut g = Graph::new(n);
+        for i in 0..(n - 1) {
+            g.add_edge(i, i + 1);
+        }
+        g
+    }
+
+    #[test]
+    fn test_sare_qmd_matches_sare() {
+        let g = path_graph(8);
+        let res_sare_qmd = sare_qmd(&g, 1.0, 0.0);
+        let res_sare = crate::sare(&g, 1.0, 0.0);
+        assert_eq!(res_sare_qmd.fill_count, res_sare.fill_count);
+        assert_eq!(res_sare_qmd.order.len(), g.n);
+    }
+}
+
 pub fn qmd_lookahead(graph: &Graph, beta: f64) -> OrderingResult {
     let mut g = graph.clone();
     let n = g.n;

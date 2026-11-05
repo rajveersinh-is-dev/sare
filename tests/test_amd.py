@@ -73,3 +73,13 @@ def test_amd_runs_successfully():
     res_amd = approximate_minimum_degree(g)
     assert res_amd["fill_count"] >= 0
     assert len(res_amd["order"]) == g.n
+
+def test_sare_qmd_matches_sare():
+    from src.python.sare_reference import sare
+    from src.python.amd import sare_qmd
+    g = grid_graph(4, 4)
+    res_sare = sare(g, 1.0, 0.0)
+    res_sare_qmd = sare_qmd(g, 1.0, 0.0)
+
+    assert res_sare_qmd["fill_count"] == res_sare["fill_count"]
+    assert len(res_sare_qmd["order"]) == g.n
