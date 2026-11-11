@@ -82,6 +82,10 @@ fn run_algorithm(g: &Graph, algo: &str, alpha: f64, beta: f64) -> Output {
             let r = sare::sare(g, alpha, beta);
             (r.order, r.fill_count, r.width, r.fill_edges_added)
         }
+        "sare-amd-hybrid" => {
+            let r = sare::sare_amd_hybrid(g, alpha, beta, 0.5);
+            (r.order, r.fill_count, r.width, r.fill_edges_added)
+        }
         "sare-qmd" => {
             let r = sare::amd::sare_qmd(g, alpha, beta);
             (r.order, r.fill_count, r.width, r.fill_edges_added)

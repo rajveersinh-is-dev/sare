@@ -388,3 +388,148 @@ pub fn qmd_lookahead(graph: &Graph, beta: f64) -> OrderingResult {
         fill_edges_added: fill_count,
     }
 }
+
+pub fn sare_amd_hybrid(graph: &Graph, alpha: f64, beta: f64, density_threshold: f64) -> OrderingResult {
+    let mut g = graph.clone();
+    let n = g.n;
+    let mut qg = QuotientGraph::new(&g);
+    let mut order = Vec::with_capacity(n);
+    let mut fill_count = 0usize;
+    let mut width = 0usize;
+
+    let mut use_amd = false;
+
+    // ---------- Phase A: safe reductions ----------
+    let mut queue: Vec<usize> = (0..n)
+        .filter(|&v| qg.exact_degree(v) <= 1)
+        .collect();
+    let mut qhead = 0;
+    while qhead < queue.len() {
+        let v = queue[qhead];
+        qhead += 1;
+        if qg.is_eliminated[v] { continue; }
+        if qg.exact_degree(v) > 1 { continue; }
+
+        let mut nbrs = HashSet::new();
+        for &u in &qg.live_neighbors[v] {
+            nbrs.insert(u);
+        }
+        for &e in &qg.elements[v] {
+            for &u in &qg.members[e] {
+                if u != v && !qg.is_eliminated[u] {
+                    nbrs.insert(u);
+                }
+            }
+        }
+
+        let deg = qg.exact_degree(v);
+        width = width.max(deg);
+        let f = qg.eliminate(v, &mut g);
+        fill_count += f;
+        order.push(v);
+
+        for u in nbrs {
+            if !qg.is_eliminated[u] && qg.exact_degree(u) <= 1 {
+                queue.push(u);
+            }
+        }
+    }
+
+    // ---------- Phase B: Hybrid ----------
+    loop {
+        if order.len() == n { break; }
+
+        if !use_amd {
+            let nodes_left = n - order.len();
+            if nodes_left > 1 {
+                let mut total_approx_edges = 0;
+                for v in 0..n {
+                    if !qg.is_eliminated[v] {
+                        total_approx_edges += qg.approx_degree(v);
+                    }
+                }
+                let density = (total_approx_edges as f64) / ((nodes_left * (nodes_left - 1)) as f64);
+                if density > density_threshold {
+                    use_amd = true;
+                }
+            }
+        }
+
+        let mut best_v = usize::MAX;
+        let mut min_score = f64::INFINITY;
+        let mut min_deg = usize::MAX;
+        let mut best_fill = 0;
+        let mut best_deg = 0;
+
+        if use_amd {
+            for v in 0..n {
+                if !qg.is_eliminated[v] {
+                    let deg = qg.approx_degree(v);
+                    if deg < min_deg {
+                        min_deg = deg;
+                        best_v = v;
+                    } else if deg == min_deg && v < best_v {
+                        best_v = v;
+                    }
+                }
+            }
+        } else {
+            for v in 0..n {
+                if !qg.is_eliminated[v] {
+                    let deg = qg.exact_degree(v);
+
+                    let mut fill = 0;
+                    let mut l_v = HashSet::new();
+                    for &u in &qg.live_neighbors[v] { l_v.insert(u); }
+                    for &e in &qg.elements[v] {
+                        for &u in &qg.members[e] {
+                            if u != v && !qg.is_eliminated[u] { l_v.insert(u); }
+                        }
+                    }
+
+                    let l_v_vec: Vec<usize> = l_v.into_iter().collect();
+                    for i in 0..l_v_vec.len() {
+                        for j in (i+1)..l_v_vec.len() {
+                            if !g.adj[l_v_vec[i]].contains(&l_v_vec[j]) {
+                                fill += 1;
+                            }
+                        }
+                    }
+
+                    let lookahead_val = if beta > 0.0 { look_ahead_qmd(&qg, v) } else { 0.0 };
+                    let score = deg as f64 + alpha * (fill as f64) + beta * lookahead_val;
+
+                    if score < min_score {
+                        min_score = score;
+                        best_v = v;
+                        best_fill = fill;
+                        best_deg = deg;
+                    } else if (score - min_score).abs() < 1e-9 && v < best_v {
+                        best_v = v;
+                        best_fill = fill;
+                        best_deg = deg;
+                    }
+                }
+            }
+        }
+
+        if best_v == usize::MAX { break; }
+
+        let true_deg = qg.exact_degree(best_v);
+        width = width.max(true_deg);
+        let f = qg.eliminate(best_v, &mut g);
+
+        if !use_amd {
+            debug_assert_eq!(f, best_fill);
+        }
+        fill_count += f;
+        order.push(best_v);
+    }
+
+    OrderingResult {
+        order,
+        fill_count,
+        width,
+        fill_edges_added: fill_count,
+    }
+}

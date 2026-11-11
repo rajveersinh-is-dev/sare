@@ -246,3 +246,122 @@ def qmd_lookahead(graph: Graph, beta: float = 1.0) -> Dict[str, Any]:
         order.append(best_v)
 
     return {"order": order, "fill_count": fill_count, "width": width, "fill_edges_added": fill_count}
+
+def sare_amd_hybrid(graph: Graph, alpha: float = 1.0, beta: float = 0.0, density_threshold: float = 0.5) -> Dict[str, Any]:
+    """
+    Hybrid SARE/AMD Wrapper.
+    Switches from exact SARE evaluation to AMD once the quotient graph density exceeds a certain threshold.
+    """
+    g = graph.copy()
+    n = g.n
+    qg = QuotientGraph(g)
+    order: List[int] = []
+    fill_count = 0
+    width = 0
+
+    use_amd = False
+
+    # ---------- Phase A: safe reductions ----------
+    queue: List[int] = [v for v in range(n) if not qg.is_eliminated[v] and qg.exact_degree(v) <= 1]
+    qhead = 0
+    while qhead < len(queue):
+        v = queue[qhead]
+        qhead += 1
+        if qg.is_eliminated[v]:
+            continue
+        if qg.exact_degree(v) > 1:
+            continue
+
+        nbrs = set(qg.live_neighbors[v])
+        for e in qg.elements[v]:
+            for u in qg.members[e]:
+                if u != v and not qg.is_eliminated[u]:
+                    nbrs.add(u)
+
+        deg = qg.exact_degree(v)
+        width = max(width, deg)
+        f = qg.eliminate(v, g)
+        fill_count += f
+        order.append(v)
+
+        for u in nbrs:
+            if not qg.is_eliminated[u] and qg.exact_degree(u) <= 1:
+                queue.append(u)
+
+    # ---------- Phase B: Hybrid SARE/AMD ----------
+    for _ in range(n):
+        if len(order) == n:
+            break
+
+        if not use_amd:
+            # Check density
+            nodes_left = n - len(order)
+            if nodes_left > 1:
+                total_approx_edges = 0
+                for v in range(n):
+                    if not qg.is_eliminated[v]:
+                        total_approx_edges += qg.approx_degree(v)
+                density = total_approx_edges / (nodes_left * (nodes_left - 1))
+                if density > density_threshold:
+                    use_amd = True
+
+        best_v = -1
+
+        if use_amd:
+            min_deg = float('inf')
+            for v in range(n):
+                if not qg.is_eliminated[v]:
+                    deg = qg.approx_degree(v)
+                    if deg < min_deg:
+                        min_deg = deg
+                        best_v = v
+                    elif deg == min_deg and v < best_v:
+                        best_v = v
+
+            true_deg = qg.exact_degree(best_v)
+            best_deg = true_deg
+            best_fill = 0 # Not explicitly computed for AMD selection
+        else:
+            min_score = float('inf')
+            best_fill = 0
+            best_deg = 0
+            for v in range(n):
+                if not qg.is_eliminated[v]:
+                    deg = qg.exact_degree(v)
+
+                    fill = 0
+                    l_v = set(qg.live_neighbors[v])
+                    for e in qg.elements[v]:
+                        for u in qg.members[e]:
+                            if u != v and not qg.is_eliminated[u]:
+                                l_v.add(u)
+                    l_v_list = list(l_v)
+                    for i in range(len(l_v_list)):
+                        for j in range(i + 1, len(l_v_list)):
+                            if l_v_list[j] not in g.adj[l_v_list[i]]:
+                                fill += 1
+
+                    lookahead_val = look_ahead_qmd(qg, v) if beta > 0.0 else 0.0
+                    score = deg + alpha * fill + beta * lookahead_val
+
+                    if score < min_score:
+                        min_score = score
+                        best_v = v
+                        best_fill = fill
+                        best_deg = deg
+                    elif abs(score - min_score) < 1e-9 and v < best_v:
+                        best_v = v
+                        best_fill = fill
+                        best_deg = deg
+
+        if best_v == -1:
+            break
+
+        width = max(width, qg.exact_degree(best_v))
+        f = qg.eliminate(best_v, g)
+        if not use_amd:
+            assert f == best_fill
+        fill_count += f
+        order.append(best_v)
+
+    return {"order": order, "fill_count": fill_count, "width": width, "fill_edges_added": fill_count}
